@@ -19,7 +19,8 @@ def load_holidays(path: Path | None = None) -> pd.DatetimeIndex:
 
 
 class TradingCalendar:
-    """observed:所有交易所行情文件的日期并集;未来日期用工作日减假期。"""
+    """observed:所有交易所行情文件的日期并集;未来日期用工作日减假期。
+    holidays 默认 configs/holidays.csv(与纸面作业、params 同一份);显式传入则覆盖。"""
 
     def __init__(self, store: Store | None = None, holidays: pd.DatetimeIndex | None = None):
         st = store or Store()
@@ -27,9 +28,7 @@ class TradingCalendar:
         for e in ("SHFE", "INE", "DCE", "CZCE"):
             observed.update(st.days(e, "quotes"))
         self.observed = pd.DatetimeIndex(sorted(observed))
-        self.holidays = (
-            holidays if holidays is not None else load_holidays(st.root / "calendar" / "holidays.csv")
-        )
+        self.holidays = holidays if holidays is not None else load_holidays()
 
     def sessions(self, start: pd.Timestamp, end: pd.Timestamp) -> pd.DatetimeIndex:
         start, end = pd.Timestamp(start), pd.Timestamp(end)

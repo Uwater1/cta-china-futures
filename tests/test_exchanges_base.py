@@ -78,3 +78,13 @@ def test_maturity_rules_with_synthetic_calendar(tmp_path: Path) -> None:
     assert maturity_date("JD2703", "DCE", cal) == pd.Timestamp("2027-03-26")  # 倒数第 4 个交易日
     assert maturity_date("SC2812", "INE", cal) == pd.Timestamp("2028-11-30")
     assert maturity_date("TF2606", "CFFEX", cal) == pd.Timestamp("2026-06-12")
+
+
+def test_default_calendar_uses_announced_holidays(tmp_path: Path) -> None:
+    """不传 holidays 时用 configs/holidays.csv(曾读不存在的 data/exchanges/calendar/holidays.csv → 假期为空)。"""
+    for cal in (TradingCalendar(Store(tmp_path)), TradingCalendar()):
+        assert pd.Timestamp("2026-10-05") in cal.holidays
+        assert not cal.is_session(pd.Timestamp("2026-10-05"))
+        assert cal.next_session_on_or_after(pd.Timestamp("2026-10-05")) == pd.Timestamp("2026-10-08")
+    # 无观察日时国庆全靠假期表:10 月第 10 个交易日是 21 日(不读假期则是 14 日)
+    assert maturity_date("AP2610", "CZCE", TradingCalendar(Store(tmp_path))) == pd.Timestamp("2026-10-21")

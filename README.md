@@ -66,7 +66,8 @@
 ## 目录
 
 ```
-src/cta/             生产代码,按流程分成五块(每块有自己的 CLAUDE.md)
+src/cta/             生产代码,按流程分成五块(每块有自己的 CLAUDE.md),外加 pipeline.py(把各阶段接起来)、
+                     cli.py(命令行入口)、config.py 与 instruments/(策略配置、合约参数)
   data/              ① 数据层:米筐导出读取;四家交易所官网数据的抓取、解析、交易日历;换月(决定每天持有哪个合约)
   factor_library/    ③ 因子库:已经采用、真正在交易的因子(趋势、展期收益、仓单水平)
   factor_combination/ ④ 因子组合:把几个因子合成一个信号,再按波动率换算成目标仓位

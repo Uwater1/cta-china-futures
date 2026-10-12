@@ -1,18 +1,18 @@
 # src/cta/factor_library: stage 3, adopted factors
 
-Pure functions on date × symbol frames. Positive = long; strength in [−1, 1]. They read back-adjusted prices only through returns or ratios.
+Pure functions on date × symbol frames. The signals (`tsmom`, `carry_signal`, `receipts_level`) use positive = long with strength in [−1, 1]; `carry` is the raw annualized roll yield, `realized_vol` is annualized volatility, and `gates.py` returns masks and multipliers. Back-adjusted prices are read only through returns or ratios.
 
 ## Status (shipped configs)
 
 | Factor | Module | Used by |
 |---|---|---|
-| `tsmom` (with `realized_vol`) | `trend.py` | all five books |
+| `tsmom` | `trend.py` (its `realized_vol` input is in `common.py`) | all five books |
 | `carry`, `carry_signal` | `term_structure.py` | all five books |
 | `receipts_level` | `warehouse_receipts.py` | v03 (champion), v03p, v05 |
 | `reg_overlay_mask` | `gates.py` | v01r only (`signals.reg_overlay.enabled`) |
 | `large_tick_mask` | `gates.py` | implemented, off in every shipped config (`signals.tick_filter`) |
 
-Candidates that were tested and not adopted (61 trials) live in `research/cta_research/factor_mining/candidates/` and in `docs/design_log.md`.
+Candidates that were tested and not adopted live in `research/cta_research/factor_mining/candidates/` and `factor_mining/signals/`, and are recorded in `docs/design_log.md` (whose trial count, 61 so far, also includes adopted factors and non-factor trials).
 
 ## How a candidate gets here
 

@@ -15,7 +15,7 @@ Everything the daily paper job, `cta.cli live` and `scripts/*.py` run. Research 
 
 ## Rules
 
-- Never import or write the name of the research package anywhere under `src/cta` (comments and docstrings included). The only exception is the lazy MSF import inside `pipeline._extra_factors_of`. `tests/test_boundaries.py` scans the raw text.
+- Never import or write the name of the research package in any `.py` file under `src/cta` or in `scripts/*.py` (comments and docstrings included). The only exception is `pipeline.py`, whose `_extra_factors_of` lazily imports MSF. `tests/test_boundaries.py` checks imports and scans the raw text of those `.py` files (not Markdown).
 - Do not move `cli.py` (the daily job runs `-m cta.cli`), `pipeline.py` (boundary-test key), `config.py` or `instruments/specs.py` (their default paths are file-relative).
 - Stage direction is enforced by `tests/test_stage_layout.py`: data, factor_library and factor_combination never import later stages or `pipeline`.
 - Acceptance window to 2026-12-15: behaviour must stay bitwise identical. A refactor here needs the golden runs and the paper replay to match old code byte for byte (design log 29 describes both).

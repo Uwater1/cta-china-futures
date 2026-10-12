@@ -960,7 +960,7 @@ M1(主):三个核心 sleeve(tsmom、carry、receipts_level 各自按波动率目
   - `src/cta/execution/`(⑤执行层:`plan.py`、`ledger.py`,驱动 `backtest/`、`live/`、`paper/`);
   - `src/cta/analysis/`(⑥只读分析;原 `risk/metrics.py`、`report/build.py` 移入)。
   - `cli.py`、`pipeline.py`、`config.py`、`instruments/` 位置不变;每日任务与 launchd 配置不变;另类数据管道 `research/cta_research/altdata/` 不动。
-- **提交**:第一步纯 `git mv`(109d6fc,保留历史);第二步拆分 `signals/core.py`、改写 71 个文件的导入、`execution/paper/book.py` 的默认账本路径深度 3 → 4;新增 `tests/test_stage_layout.py`(全仓库每条导入可解析,含函数内延迟导入;文件相对默认路径;阶段依赖方向)。
+- **提交**:第一步 `git mv` 并删除三个空包的 `__init__.py`(109d6fc;整文件移动的保留历史,`signals/core.py` 的历史跟随 `factor_combination/portfolio.py`,`factor_library/*.py` 与 `weighting.py` 是第二步新建的文件,更早历史用 `git log -- src/cta/signals/core.py` 查);第二步(b9cd24f)拆分 `signals/core.py`、改写 71 个文件里的模块路径(导入语句与文档字符串)、`execution/paper/book.py` 的默认账本路径深度 3 → 4;新增 `tests/test_stage_layout.py`(全仓库每条导入可解析,含函数内延迟导入;文件相对默认路径;阶段依赖方向),并新增各阶段与研究区的 CLAUDE.md(9 份);第三步(b1c01b0)改根目录 CLAUDE.md、README、docs 与本节。
 - **等价性证据**(旧代码 c0bafab 对新代码):
   - 六个配置(五本纸面账配置与 v0.6 演示)的完整研究回测输出逐字节相同;`run.json` 只差代码版本号与按检出目录得到的数据路径(及由路径算出的清单哈希)。目录名中的配置摘要与参数表摘要不变。
   - 纸面账回放:五本账分别从 09-30 与 10-08 的已提交状态补跑 10-08、10-09,新旧代码产出的全部文件相同(订单快照只差代码版本号与数据路径);每次回放都实际生成了当日订单、成交与权益。

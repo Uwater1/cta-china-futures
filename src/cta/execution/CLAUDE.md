@@ -14,5 +14,5 @@ Shared by the backtest, the daily order generator and the paper books, so all th
 ## Rules
 
 - Timing: signals at T close, fills at the T+1 open, which for night-session products is calendar-T 21:00. Check any data published after 15:00 against that.
-- `tests/test_paths_agree.py` checks on 29 real days that the engine and an as-of loop (`generate_orders` → `ledger.execute_day` → `ledger.mark`) hold identical lots and equity. It does not run `PaperBook`; changes to `paper/` need the paper replay check (design log 29).
+- `tests/test_paths_agree.py` checks on 29 real days that the engine and an as-of loop (`generate_orders` → `ledger.execute_day` → `ledger.mark`) hold identical lots and equal equity (to within 1e-6 CNY). It does not run `PaperBook`; changes to `paper/` need the paper replay check (design log 29).
 - `execution.fill` in the config schema has no effect but is part of the config digest; leave it.

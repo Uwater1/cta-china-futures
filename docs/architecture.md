@@ -5,7 +5,7 @@
 ```
 configs/                 strategy*.yaml(五本纸面账、样例 sample.yaml、v0.6 演示)、instruments.yaml(合约参数)、
                          holidays.csv、paper_protocol.yaml(纸面验收协议)、experiments/(研究用配置)
-src/cta/                 生产代码(纸面每日任务与出单导入的全部代码),按流程阶段分文件夹,每个文件夹有 CLAUDE.md
+src/cta/                 生产代码(纸面每日任务与出单导入的全部代码),按流程阶段分文件夹,每个阶段文件夹有 CLAUDE.md
   data/                  [1] 数据层:DataSource 协议与三个实现(RicequantParquetSource 米筐导出 2016 → 2026-06-05;
                          exchanges/ExchangeSource 四家交易所直连,追加写入不覆盖,主力规则 max_oi 默认 / oi_1.1x 复刻米筐;
                          StitchedSource 默认,米筐历史 + 交易所增量,结算价用交易所官方值);exchanges/ 各交易所抓取与解析;

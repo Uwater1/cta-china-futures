@@ -33,7 +33,7 @@ scripts/setup_env.sh                                   # once per checkout: .ven
 | 5 execution | `src/cta/execution/` (`plan.py` sizing, `ledger.py` fills and marking, drivers `backtest/`, `live/`, `paper/`) |
 | 6 analysis (read-only) | `src/cta/analysis/` |
 
-- `src/cta/pipeline.py` wires 1 → 3 → 4 → 5; `src/cta/cli.py` is the only entry point (the daily job runs `-m cta.cli`).
+- `src/cta/pipeline.py` wires 1 → 3 → 4 → 5. `src/cta/cli.py` is the entry point for research | live | report | paper and the only one the daily job uses (`-m cta.cli`); the exchange modules have their own `python -m` CLIs for backfill and reparse. `config.py` and `instruments/` (strategy config, contract specs) also stay at the top of `src/cta`.
 - Production = `src/cta/` plus `scripts/*.py`. It never imports or names the research package, except `pipeline._extra_factors_of`, which lazily loads the MSF composite when a config weights `msf` (only the demo `configs/strategy_v06_msf.yaml`). `tests/test_boundaries.py` and `tests/test_stage_layout.py` enforce the boundary, the stage direction, every import path and the file-relative default paths.
 - `research/cta_research/altdata/` holds the alternative-data pipelines; `research/cta_research/legacy/` the pre-2026-09-22 engine.
 - Top-level `data/` is the gitignored data store (code is in `src/cta/data/`); top-level `paper/` holds the five books (code is in `src/cta/execution/paper/`).
@@ -48,4 +48,4 @@ scripts/setup_env.sh                                   # once per checkout: .ven
 - **Out-of-sample monthly Sharpe:** start the slice at 2021-12-31, not 2022-01-04 (`perf_stats` drops the first month). Report v0.5 used the old slice (design log 二十七).
 - **Timing.** Signals at T close; fills at the T+1 open, which for night-session products is calendar-T 21:00. Any data published after 15:00 must be checked against that.
 - **Paper books and the daily job.** `scripts/paper_daily.sh` (launchd, 05:10 local time) commits whatever is staged and pushes `HEAD`: keep that checkout on `main` with nothing staged, do branch work in a worktree, never merge into it while the job runs, and recover failed days only there. Details in `src/cta/execution/paper/CLAUDE.md` and `docs/deployment.md`.
-- **Research scripts and frozen evaluations.** See `research/cta_research/CLAUDE.md` (holdout gates, smoke modes that overwrite real outputs, hand-written text that reruns erase, frozen replays such as trial 61 at commit 5626548).
+- **Research scripts and frozen evaluations.** See `research/cta_research/CLAUDE.md` (smoke modes that overwrite real outputs, hand-written text that reruns erase, frozen replays such as trial 61 at commit 5626548) and `research/cta_research/factor_mining/CLAUDE.md` (holdout gates, candidate_eval preconditions).

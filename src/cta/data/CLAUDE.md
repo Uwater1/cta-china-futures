@@ -19,4 +19,5 @@ Not to be confused with the top-level `data/` folder, which is the gitignored lo
 - Empty settlements: SHFE/INE quotes fill isolated gaps but raise `NotFinalError` (and delete their raw) above 5% of traded contracts; DCE quotes fail validation on any; CZCE drops those rows and writes the rest.
 - Only the paper runner refuses today's data before 16:30 Beijing; the exchange CLIs have no time guard.
 - DCE is fetched through the local Chrome DevTools proxy (`localhost:3456`). Never try to defeat its anti-bot challenge another way.
+- `TradingCalendar` takes its holidays from `configs/holidays.csv` by default (fixed 2026-10-12; it used to read a file that does not exist). Adding next year's holidays there immediately moves exchange-rule maturities of future contracts, which can change `days_to_next` and carry for contracts the books hold (design log 30.3). Add them when the exchanges announce them and expect that change.
 - Rolls switch only after the dominant candidate holds 3 days, and only forward in maturity. `adj_close` levels are rescaled by every later roll: compare returns, never levels.

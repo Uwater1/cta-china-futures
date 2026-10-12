@@ -7,8 +7,8 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
-from cta.signals.core import carry, carry_signal, log_returns, realized_vol, tsmom
-from cta_research.factors.base import FactorInputs, FactorSpec, register
+from cta.factor_library import carry, carry_signal, log_returns, realized_vol, tsmom
+from cta_research.factor_mining.candidates.base import FactorInputs, FactorSpec, register
 
 Frame = pd.DataFrame
 TRADING_DAYS = 243

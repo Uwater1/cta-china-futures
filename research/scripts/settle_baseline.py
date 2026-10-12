@@ -24,9 +24,9 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_research)
 
-from cta.backtest import engine  # noqa: E402
 from cta.config import DataCfg, load_config  # noqa: E402
 from cta.data.exchanges.source import default_stitched  # noqa: E402
+from cta.execution.backtest import engine  # noqa: E402
 from cta.instruments.specs import load_instruments  # noqa: E402
 from cta.pipeline import (  # noqa: E402
     _receipts_of,

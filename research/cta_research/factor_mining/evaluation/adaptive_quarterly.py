@@ -17,7 +17,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from cta.risk.metrics import TRADING_DAYS
+from cta.analysis.metrics import TRADING_DAYS
 
 FACTORS: tuple[str, ...] = ("tsmom", "carry", "receipts_level")
 H_YEARS = 1.0  # EWMA 半衰期

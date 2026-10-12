@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from cta.config import StrategyConfig
-from cta.continuous.roll import SymbolPanel
+from cta.data.continuous.roll import SymbolPanel
 from cta.data.source import DataSource
 from cta.execution.plan import SymbolInputs, plan_lots
 from cta.instruments.specs import InstrumentTable

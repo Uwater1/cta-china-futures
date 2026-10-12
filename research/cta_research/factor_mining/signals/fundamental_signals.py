@@ -20,11 +20,12 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
+from cta.analysis.metrics import TRADING_DAYS
 from cta.config import StrategyConfig
 from cta.data.source import DataSource
+from cta.factor_combination import cap_gross_exposure, trade_buffer, vol_target_positions
+from cta.factor_library import log_returns
 from cta.instruments.specs import InstrumentTable
-from cta.risk.metrics import TRADING_DAYS
-from cta.signals.core import cap_gross_exposure, log_returns, trade_buffer, vol_target_positions
 
 Frame = pd.DataFrame
 

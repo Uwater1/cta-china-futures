@@ -16,15 +16,16 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from cta import factor_combination as combo
+from cta import factor_library as lib
 from cta.config import StrategyConfig
-from cta.continuous.roll import SymbolPanel
+from cta.data.continuous.roll import SymbolPanel
 from cta.data.source import DataSource
 from cta.instruments.specs import InstrumentTable
-from cta.signals import core as sig
-from cta_research.evaluation.candidate_eval import Candidate
-from cta_research.signals import altdata_signals as alt
-from cta_research.signals import fundamental_signals as fs
-from cta_research.signals import options_signals as osig
+from cta_research.factor_mining.evaluation.candidate_eval import Candidate
+from cta_research.factor_mining.signals import altdata_signals as alt
+from cta_research.factor_mining.signals import fundamental_signals as fs
+from cta_research.factor_mining.signals import options_signals as osig
 
 Frame = pd.DataFrame
 
@@ -221,7 +222,7 @@ def build_component_candidates(
     eligible = eligible_mask(panels, cfg)
     industrial = [s for s in cols if specs[s].asset_class in INDUSTRIAL_CLASSES]
     out: dict[str, Candidate] = {}
-    rl = sig.receipts_level(src.receipts(), dates, cols, eligible)
+    rl = lib.receipts_level(src.receipts(), dates, cols, eligible)
     # 仓单:T 日收盘后公布的 T 日数据 → T 日信号 → T+1 开盘(夜盘品种 T 日 21:00)成交
     out["R"] = Candidate(
         "R",
@@ -305,7 +306,7 @@ def build_components(
 
 def combine_msf(components: dict[str, Frame]) -> Frame:
     """等权合成,√(有值成分数 / 成分总数) 归一,clip [−1, 1](与生产 combine 相同)。"""
-    return sig.combine(components)
+    return combo.combine(components)
 
 
 def build_msf(

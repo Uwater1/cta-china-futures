@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from cta.factor_library import large_tick_mask
 from cta.instruments.specs import load_instruments
-from cta.signals.core import large_tick_mask
 
 
 def test_large_tick_mask_ranks_at_month_end_and_applies_next_month() -> None:

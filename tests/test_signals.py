@@ -1,16 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from cta.signals.core import (
-    cap_gross_exposure,
-    carry,
-    carry_signal,
-    combine,
-    realized_vol,
-    trade_buffer,
-    tsmom,
-    vol_target_positions,
-)
+from cta.factor_combination import cap_gross_exposure, combine, trade_buffer, vol_target_positions
+from cta.factor_library import carry, carry_signal, realized_vol, tsmom
 
 
 def _px(n: int = 400, seed: int = 0) -> pd.DataFrame:

@@ -1,6 +1,6 @@
 """因子基础设施:输入容器、因子规格、注册表、统一标准化。
 
-约定(与 cta.signals 一致):因子原值经 fn 已带方向,"正 = 做多";标准化后取值在 [-1, 1]。
+约定(与 cta.factor_library 一致):因子原值经 fn 已带方向,"正 = 做多";标准化后取值在 [-1, 1]。
 时序(ts)因子:原值 / 自身 252 日滚动标准差(center=True 时先减滚动均值),clip ±2 再 /2;
 横截面(xs)因子:每日在可投品种内做 z-score,clip ±2 再 /2。
 """
@@ -15,9 +15,9 @@ import numpy as np
 import pandas as pd
 
 from cta.config import StrategyConfig
-from cta.continuous.roll import SymbolPanel
+from cta.data.continuous.roll import SymbolPanel
+from cta.factor_library import realized_vol
 from cta.pipeline import _wide, eligible_mask
-from cta.signals.core import realized_vol
 
 Frame = pd.DataFrame
 Kind = Literal["ts", "xs"]

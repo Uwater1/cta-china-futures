@@ -69,7 +69,7 @@ def test_production_imports_without_research_on_path() -> None:
             "import os",
             f"sys.path = [p for p in sys.path if os.path.realpath(p or '.') != os.path.realpath({research!r})]",
             f"sys.path.insert(0, {str(ROOT / 'src')!r})",
-            "import cta.cli, cta.pipeline, cta.paper.runner, cta.live.orders, cta.report.build",
+            "import cta.cli, cta.pipeline, cta.execution.paper.runner, cta.execution.live.orders, cta.analysis.report",
             "import cta.analysis.paper_acceptance, cta.analysis.attribution, cta.analysis.loo, cta.analysis.stats",
             "assert not [m for m in sys.modules if m.startswith('cta_research')], 'research imported'",
             "import importlib.util",

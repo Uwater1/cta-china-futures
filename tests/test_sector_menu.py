@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from cta.signals.core import combine, combine_tv, inverse_vol_weights, menu_masks
+from cta.factor_combination import combine, combine_tv, inverse_vol_weights, menu_masks
 
 
 def test_menu_masks_sector_and_symbol_override() -> None:
@@ -51,7 +51,7 @@ def test_inverse_vol_weights_causal_and_normalised() -> None:
 def test_compute_signals_applies_menu_on_synthetic_panels() -> None:
     """走完整的 compute_signals 路径:贵金属只留 tsmom → 其合成信号等于 tsmom;有色三因子都在。"""
     from cta.config import load_config
-    from cta.continuous.roll import PANEL_COLS, SymbolPanel
+    from cta.data.continuous.roll import PANEL_COLS, SymbolPanel
     from cta.pipeline import compute_signals
 
     idx = pd.bdate_range("2019-01-01", periods=700)
@@ -101,7 +101,7 @@ def test_compute_signals_applies_menu_on_synthetic_panels() -> None:
 
 
 def test_reg_overlay_mask_window_and_filters() -> None:
-    from cta.signals.core import reg_overlay_mask
+    from cta.factor_library import reg_overlay_mask
 
     idx = pd.bdate_range("2021-01-01", periods=60)
     ev = pd.DataFrame(

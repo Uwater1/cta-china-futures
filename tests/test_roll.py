@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from cta.continuous.roll import build_symbol_panel, confirmed_dominant
+from cta.data.continuous.roll import build_symbol_panel, confirmed_dominant
 
 
 def _fixture():

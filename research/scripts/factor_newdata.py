@@ -15,13 +15,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_re
 from cta.config import load_config  # noqa: E402
 from cta.data.exchanges.base import Store  # noqa: E402
 from cta.data.exchanges.source import default_stitched  # noqa: E402
+from cta.factor_combination import combine  # noqa: E402
 from cta.instruments.specs import load_instruments  # noqa: E402
 from cta.pipeline import build_panels  # noqa: E402
-from cta.signals.core import combine  # noqa: E402
-from cta_research.factors import newdata as nd  # noqa: E402
-from cta_research.factors.base import REGISTRY, FactorInputs  # noqa: E402
-from cta_research.factors.evaluate import FactorResult, deflated_sharpe, evaluate_factor  # noqa: E402
-from cta_research.factors.library import ALL_FACTORS  # noqa: E402,F401  —— 注册因子
+from cta_research.factor_mining.candidates import newdata as nd  # noqa: E402
+from cta_research.factor_mining.candidates.base import REGISTRY, FactorInputs  # noqa: E402
+from cta_research.factor_mining.candidates.catalog import ALL_FACTORS  # noqa: E402,F401  —— 注册因子
+from cta_research.factor_mining.evaluation.evaluate import (  # noqa: E402
+    FactorResult,
+    deflated_sharpe,
+    evaluate_factor,
+)
 
 IS_END = pd.Timestamp("2021-12-31")
 ap = argparse.ArgumentParser()

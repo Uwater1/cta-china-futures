@@ -12,11 +12,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sps
 
+from cta.analysis.metrics import perf_stats
 from cta.config import StrategyConfig
+from cta.factor_combination import cap_gross_exposure, vol_target_positions
+from cta.factor_library import log_returns
 from cta.instruments.specs import InstrumentTable
-from cta.risk.metrics import perf_stats
-from cta.signals.core import cap_gross_exposure, log_returns, vol_target_positions
-from cta_research.factors.base import FactorInputs
+from cta_research.factor_mining.candidates.base import FactorInputs
 
 Frame = pd.DataFrame
 Series = "pd.Series[Any]"

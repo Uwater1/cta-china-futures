@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from cta.backtest.engine import BacktestResult
+from cta.execution.backtest.engine import BacktestResult
 from cta.instruments.specs import InstrumentTable
 
 

@@ -14,7 +14,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from matplotlib import font_manager  # noqa: E402
 
-from cta.risk.metrics import drawdown, perf_stats, yearly  # noqa: E402
+from cta.analysis.metrics import drawdown, perf_stats, yearly  # noqa: E402
 
 _CJK = ["PingFang SC", "Hiragino Sans GB", "Heiti SC", "Noto Sans CJK SC", "SimHei"]
 _avail = {f.name for f in font_manager.fontManager.ttflist}

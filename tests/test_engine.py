@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from cta.backtest.engine import run_backtest
-from cta.continuous.roll import PANEL_COLS, SymbolPanel
+from cta.data.continuous.roll import PANEL_COLS, SymbolPanel
+from cta.execution.backtest.engine import run_backtest
 from cta.instruments.specs import load_instruments
 
 

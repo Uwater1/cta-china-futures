@@ -15,8 +15,8 @@ import numpy.typing as npt
 import pandas as pd
 from scipy.stats import norm
 
-from cta_research.evaluation.candidate_eval import Candidate
-from cta_research.signals.altdata_signals import Feature, pit_signal
+from cta_research.factor_mining.evaluation.candidate_eval import Candidate
+from cta_research.factor_mining.signals.altdata_signals import Feature, pit_signal
 
 Frame = pd.DataFrame
 FloatArr = npt.NDArray[np.float64]

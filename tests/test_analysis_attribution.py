@@ -10,8 +10,8 @@ import pytest
 
 from cta.analysis import attribution as attr
 from cta.analysis.loo import leave_one_out
-from cta.backtest.engine import BacktestResult, run_backtest
-from cta.continuous.roll import PANEL_COLS, SymbolPanel
+from cta.data.continuous.roll import PANEL_COLS, SymbolPanel
+from cta.execution.backtest.engine import BacktestResult, run_backtest
 from cta.instruments.specs import load_instruments
 
 D = pd.bdate_range("2021-03-01", periods=4)

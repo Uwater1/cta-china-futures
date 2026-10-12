@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from cta_research.factors import newdata as nd
+from cta_research.factor_mining.candidates import newdata as nd
 
 
 def test_zscores_and_receipt_direction() -> None:

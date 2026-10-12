@@ -20,7 +20,7 @@ from cta.execution.ledger import LedgerIntegrityError, Position
 from cta.instruments.specs import InstrumentTable
 
 DEFAULT_DIR = (
-    Path(__file__).resolve().parents[3] / "paper" / "v01"
+    Path(__file__).resolve().parents[4] / "paper" / "v01"
 )  # 五本账都在 paper/<账本>/ 下;paper/log/ 是 launchd 日志目录
 BookIntegrityError = LedgerIntegrityError
 

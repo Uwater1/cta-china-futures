@@ -13,13 +13,14 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_research)
-from cta import signals as _sig  # noqa: E402,F401
-from cta.backtest.engine import run_backtest  # noqa: E402
+from cta import factor_combination as combo  # noqa: E402
+from cta import factor_library as _sig  # noqa: E402,F401
+from cta import factor_library as lib  # noqa: E402
 from cta.config import load_config  # noqa: E402
 from cta.data.exchanges.source import default_stitched  # noqa: E402
+from cta.execution.backtest.engine import run_backtest  # noqa: E402
 from cta.instruments.specs import load_instruments  # noqa: E402
 from cta.pipeline import _receipts_of, _wide, build_panels, compute_signals, eligible_mask  # noqa: E402
-from cta.signals import core as sig  # noqa: E402
 
 IS_END = pd.Timestamp("2021-12-31")
 ap = argparse.ArgumentParser()
@@ -75,13 +76,13 @@ print(f"评估区间内被覆盖的品种-日比例 {covered:.1%}")
 # 基线信号与覆盖后信号(只改 tsmom;其余与 compute_signals 完全一致)
 base = compute_signals(panels, cfg, receipts=_receipts_of(src), specs=specs)
 close, nxt, days = _wide(panels, "close"), _wide(panels, "next_close"), _wide(panels, "days_to_next")
-vol = sig.realized_vol(adj, cfg.signals.vol_window)
-ts = sig.tsmom(adj, tuple(cfg.signals.tsmom_lookbacks), vol=vol) * mask
-cr = sig.carry_signal(sig.carry(close, nxt, days), cfg.signals.carry_scale)
+vol = lib.realized_vol(adj, cfg.signals.vol_window)
+ts = lib.tsmom(adj, tuple(cfg.signals.tsmom_lookbacks), vol=vol) * mask
+cr = lib.carry_signal(lib.carry(close, nxt, days), cfg.signals.carry_scale)
 eligible = eligible_mask(panels, cfg)
-comb = sig.combine({"tsmom": ts, "carry": cr}, cfg.signals.weights)
-raw = sig.cap_gross_exposure(
-    sig.vol_target_positions(
+comb = combo.combine({"tsmom": ts, "carry": cr}, cfg.signals.weights)
+raw = combo.cap_gross_exposure(
+    combo.vol_target_positions(
         comb.where(eligible),
         vol,
         adj,
@@ -97,7 +98,7 @@ tgt = raw.copy()
 prev = pd.Series(0.0, index=tgt.columns)
 for d in tgt.index:
     row = tgt.loc[d].fillna(0.0)
-    new = sig.trade_buffer(row, prev, cfg.portfolio.exposure_buffer)
+    new = combo.trade_buffer(row, prev, cfg.portfolio.exposure_buffer)
     tgt.loc[d] = new
     prev = new
 

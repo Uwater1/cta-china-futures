@@ -11,12 +11,12 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from cta.backtest.engine import run_backtest  # noqa: E402
+from cta.analysis.metrics import perf_stats  # noqa: E402
 from cta.config import load_config  # noqa: E402
 from cta.data.source import RicequantParquetSource  # noqa: E402
+from cta.execution.backtest.engine import run_backtest  # noqa: E402
 from cta.instruments.specs import load_instruments  # noqa: E402
 from cta.pipeline import build_panels, compute_signals  # noqa: E402
-from cta.risk.metrics import perf_stats  # noqa: E402
 
 CAPITALS = [1e6, 2e6, 3e6, 5e6, 1e7]
 WINDOW = ("2022-01-27", None)  # 洛书管理期货拾壹号成立日起;None = 回测末日

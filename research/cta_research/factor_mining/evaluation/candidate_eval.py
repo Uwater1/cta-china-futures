@@ -24,16 +24,16 @@ from cta.analysis.attribution import (
     sector_contribution,
 )
 from cta.analysis.loo import segment_stats
+from cta.analysis.metrics import TRADING_DAYS, perf_stats
 from cta.analysis.stats import newey_west_mean, paired_differences, paired_summary
-from cta.backtest.engine import BacktestResult, run_backtest
 from cta.config import StrategyConfig, load_config
-from cta.continuous.roll import SymbolPanel
+from cta.data.continuous.roll import SymbolPanel
 from cta.data.exchanges.source import default_stitched
+from cta.execution.backtest.engine import BacktestResult, run_backtest
+from cta.factor_library import log_returns
 from cta.instruments.specs import InstrumentTable, load_instruments
 from cta.pipeline import Signals, _receipts_of, _reg_events_of, build_panels, compute_signals
-from cta.risk.metrics import TRADING_DAYS, perf_stats
-from cta.signals.core import log_returns
-from cta_research.signals import fundamental_signals as fs
+from cta_research.factor_mining.signals import fundamental_signals as fs
 
 Frame = pd.DataFrame
 

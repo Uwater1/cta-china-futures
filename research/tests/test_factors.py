@@ -5,9 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from cta_research.factors.base import FactorInputs, standardize
-from cta_research.factors.evaluate import _spearman_rows, deflated_sharpe, expected_max_sharpe
-from cta_research.factors.library import (
+from cta_research.factor_mining.candidates.base import FactorInputs, standardize
+from cta_research.factor_mining.candidates.catalog import (
     ALL_FACTORS,
     basis_mom,
     breakout,
@@ -16,6 +15,11 @@ from cta_research.factors.library import (
     reversal_st,
     seasonal,
     skew_neg,
+)
+from cta_research.factor_mining.evaluation.evaluate import (
+    _spearman_rows,
+    deflated_sharpe,
+    expected_max_sharpe,
 )
 
 

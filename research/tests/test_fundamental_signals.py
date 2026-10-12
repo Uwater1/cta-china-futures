@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cta_research.signals import fundamental_signals as fs
+from cta_research.factor_mining.signals import fundamental_signals as fs
 
 DATA = Path("data/ricecta/data")
 needs_data = pytest.mark.skipif(not DATA.exists(), reason="需要本地米筐/交易所数据")
@@ -170,7 +170,7 @@ def test_raw_then_buffer_is_deterministic() -> None:
     adj = pd.DataFrame(
         100 * np.exp(np.cumsum(rng.normal(0, 0.01, (250, 2)), axis=0)), index=dates, columns=["A", "B"]
     )
-    from cta.signals.core import realized_vol
+    from cta.factor_library import realized_vol
 
     vol = realized_vol(adj, 40)
     comb = pd.DataFrame(0.5, index=dates, columns=["A", "B"])
@@ -199,9 +199,9 @@ def test_static_baseline_reproduces_production_target_and_reference_equity() -> 
     """raw_exposure → apply_buffer 走的是 compute_signals 尾部同一条路径:与生产目标暴露逐位相同;引擎权益与正式基线 D 臂逐位一致。"""
     import json
 
-    from cta.backtest.engine import run_backtest
     from cta.config import load_config
     from cta.data.exchanges.source import default_stitched
+    from cta.execution.backtest.engine import run_backtest
     from cta.instruments.specs import load_instruments
     from cta.pipeline import _receipts_of, _reg_events_of, build_panels, compute_signals, summarize_result
 

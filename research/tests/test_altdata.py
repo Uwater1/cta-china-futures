@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cta_research.signals import altdata_signals as alt
+from cta_research.factor_mining.signals import altdata_signals as alt
 
 DATA = Path("data/external/alt")
 

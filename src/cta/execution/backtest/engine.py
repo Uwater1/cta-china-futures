@@ -17,7 +17,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from cta.continuous.roll import SymbolPanel
+from cta.data.continuous.roll import SymbolPanel
 from cta.execution import ledger
 from cta.execution.ledger import Ledger, Quote
 from cta.execution.plan import SymbolInputs, plan_lots

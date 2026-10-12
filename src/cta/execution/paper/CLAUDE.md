@@ -1,0 +1,12 @@
+# src/cta/execution/paper: paper books (code)
+
+The books themselves live in the top-level `paper/` folder; this folder is the code that steps them.
+
+- Five books, each tied to one config: `paper/v01` → `strategy.yaml` (the only book that ingests data; runs first), `paper/v03` → `strategy_v03.yaml` (champion), `paper/v03p`, `paper/v01r`, `paper/v05` → `strategy_v03p/v01r/v05.yaml`. The CLI does not check the pairing: always pass `--book` with its `--config`.
+- A step stages everything in `<book>/.txn/<date>/` and commits with `os.replace`, writing `state.json` last. On failure it writes `FAILED.json` and leaves state unchanged; rerunning `catchup` is idempotent. A settled day cannot be recomputed. Never hand-edit `state.json`.
+- A `--book` without `state.json` is refused unless `--init` (otherwise a fresh 3M book would be created). Never point `--book` at `paper/` or `paper/log/`.
+- Side-effect-free check: `paper step --date <settled day> --no-ingest --book … --config …` → "already settled".
+- `scripts/paper_daily.sh` (launchd, `deploy/com.cta.paper.plist`) commits whatever is staged and pushes `HEAD`. Keep that checkout on `main` with nothing staged; do branch work in a worktree; recover failed days only in that checkout (`docs/deployment.md`, 失败语义与恢复).
+- `book.DEFAULT_DIR` is file-relative (`parents[4]` → `<repo>/paper/v01`); `tests/test_stage_layout.py` checks it.
+- Trading days are Mon–Fri minus `configs/holidays.csv`; an unlisted exchange holiday fails the step by design. Add each year's holidays when announced.
+- DCE fetch timeouts (2026-09-23, 10-08; on 10-08 the proxy was not attached to Chrome) fail every book holding DCE contracts at `settle`.

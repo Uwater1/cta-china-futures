@@ -24,9 +24,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_re
 
 from cta.analysis.loo import segment_stats  # noqa: E402
 from cta.analysis.stats import paired_summary  # noqa: E402
-from cta.backtest.engine import BacktestResult, run_backtest  # noqa: E402
 from cta.config import load_config  # noqa: E402
 from cta.data.exchanges.source import default_stitched  # noqa: E402
+from cta.execution.backtest.engine import BacktestResult, run_backtest  # noqa: E402
+from cta.factor_combination import combine  # noqa: E402
+from cta.factor_library import tsmom  # noqa: E402
 from cta.instruments.specs import load_instruments  # noqa: E402
 from cta.pipeline import (
     _receipts_of,
@@ -35,11 +37,10 @@ from cta.pipeline import (
     compute_signals,
     git_sha,
 )  # noqa: E402
-from cta.signals.core import combine, tsmom  # noqa: E402
-from cta_research.evaluation import adaptive_quarterly as aq  # noqa: E402
-from cta_research.evaluation import walkforward as wf  # noqa: E402
-from cta_research.factors.base import FactorInputs  # noqa: E402
-from cta_research.factors.evaluate import evaluate_factor  # noqa: E402
+from cta_research.factor_mining.candidates.base import FactorInputs  # noqa: E402
+from cta_research.factor_mining.evaluation import adaptive_quarterly as aq  # noqa: E402
+from cta_research.factor_mining.evaluation import walkforward as wf  # noqa: E402
+from cta_research.factor_mining.evaluation.evaluate import evaluate_factor  # noqa: E402
 
 RQ = Path("data/ricecta/data")
 PREV = Path("results/quarterly_walkforward")

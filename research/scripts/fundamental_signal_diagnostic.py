@@ -32,15 +32,16 @@ from cta.analysis.attribution import (
     sector_contribution,
 )  # noqa: E402
 from cta.analysis.loo import segment_stats  # noqa: E402
+from cta.analysis.metrics import TRADING_DAYS  # noqa: E402
 from cta.analysis.stats import (  # noqa: E402
     block_bootstrap_mean,
     newey_west_mean,
     paired_differences,
     paired_summary,
 )
-from cta.backtest.engine import BacktestResult, run_backtest  # noqa: E402
 from cta.config import load_config  # noqa: E402
 from cta.data.exchanges.source import default_stitched  # noqa: E402
+from cta.execution.backtest.engine import BacktestResult, run_backtest  # noqa: E402
 from cta.instruments.specs import load_instruments  # noqa: E402
 from cta.pipeline import (
     _receipts_of,
@@ -50,8 +51,7 @@ from cta.pipeline import (
     git_sha,
     summarize_result,
 )  # noqa: E402
-from cta.risk.metrics import TRADING_DAYS  # noqa: E402
-from cta_research.signals import fundamental_signals as fs  # noqa: E402
+from cta_research.factor_mining.signals import fundamental_signals as fs  # noqa: E402
 
 RQ = Path("data/ricecta/data")
 MACRO = RQ / "macro_factors"
@@ -120,7 +120,7 @@ def arm_stats(res: BacktestResult, specs: Any, start: pd.Timestamp, end: pd.Time
     seg = eq[m]
     st, _ = summarize_result(res, specs)
     out = segment_stats(eq, start, end)
-    from cta.risk.metrics import perf_stats
+    from cta.analysis.metrics import perf_stats
 
     ps = perf_stats(seg) if len(seg) > 40 else {}
     years = max(len(seg) / TRADING_DAYS, 1e-9)

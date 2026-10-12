@@ -20,9 +20,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_research)
 
 from cta.analysis.loo import segment_stats  # noqa: E402
-from cta.backtest.engine import run_backtest  # noqa: E402
 from cta.config import StrategyConfig, load_config  # noqa: E402
 from cta.data.exchanges.source import default_stitched  # noqa: E402
+from cta.execution.backtest.engine import run_backtest  # noqa: E402
+from cta.factor_combination import (  # noqa: E402
+    cap_gross_exposure,
+    combine,
+    trade_buffer,
+    vol_target_positions,
+)
 from cta.instruments.specs import load_instruments  # noqa: E402
 from cta.pipeline import (  # noqa: E402
     _receipts_of,
@@ -32,10 +38,9 @@ from cta.pipeline import (  # noqa: E402
     git_sha,
     summarize_result,
 )
-from cta.signals.core import cap_gross_exposure, combine, trade_buffer, vol_target_positions  # noqa: E402
-from cta_research.factors.base import FactorInputs  # noqa: E402
-from cta_research.factors.evaluate import correlation_table, evaluate_factor  # noqa: E402
-from cta_research.factors.library import ALL_FACTORS  # noqa: E402
+from cta_research.factor_mining.candidates.base import FactorInputs  # noqa: E402
+from cta_research.factor_mining.candidates.catalog import ALL_FACTORS  # noqa: E402
+from cta_research.factor_mining.evaluation.evaluate import correlation_table, evaluate_factor  # noqa: E402
 
 RQ = Path("data/ricecta/data")
 OUT = Path("results/walkforward_quarterly")

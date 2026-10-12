@@ -7,13 +7,13 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_research)
-from cta.backtest.engine import run_backtest
+from cta import factor_combination as combo
+from cta.analysis.metrics import perf_stats
 from cta.config import load_config
 from cta.data.source import RicequantParquetSource
+from cta.execution.backtest.engine import run_backtest
 from cta.instruments.specs import load_instruments
 from cta.pipeline import build_panels, compute_signals
-from cta.risk.metrics import perf_stats
-from cta.signals import core as sig
 
 cfg = load_config()
 specs = load_instruments()
@@ -49,7 +49,7 @@ def bt(target, **kw):
 
 
 def targets_from(comb):
-    raw = sig.vol_target_positions(
+    raw = combo.vol_target_positions(
         comb.where(S.eligible),
         S.vol,
         S.adj_close,
@@ -60,7 +60,7 @@ def targets_from(comb):
     tgt = raw.copy()
     prev = pd.Series(0.0, index=tgt.columns)
     for d in tgt.index:
-        b = sig.trade_buffer(tgt.loc[d].fillna(0.0), prev, cfg.portfolio.exposure_buffer)
+        b = combo.trade_buffer(tgt.loc[d].fillna(0.0), prev, cfg.portfolio.exposure_buffer)
         tgt.loc[d] = b
         prev = b
     return tgt

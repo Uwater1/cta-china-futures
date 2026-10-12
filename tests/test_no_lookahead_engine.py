@@ -14,7 +14,7 @@ pytestmark = pytest.mark.skipif(not DATA.exists(), reason="需要米筐导出与
 
 
 def _run(cfg, specs, src, end):  # type: ignore[no-untyped-def]
-    from cta.backtest.engine import run_backtest
+    from cta.execution.backtest.engine import run_backtest
     from cta.pipeline import _receipts_of, build_panels, compute_signals
 
     panels = build_panels(src, cfg, specs, end=end)

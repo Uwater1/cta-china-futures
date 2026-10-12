@@ -21,11 +21,11 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_research)
 
+from cta.analysis.metrics import TRADING_DAYS  # noqa: E402
 from cta.analysis.stats import block_bootstrap_mean, paired_differences  # noqa: E402
 from cta.pipeline import git_sha  # noqa: E402
-from cta.risk.metrics import TRADING_DAYS  # noqa: E402
-from cta_research.evaluation import candidate_eval as ce  # noqa: E402
-from cta_research.signals import altdata_signals as alt  # noqa: E402
+from cta_research.factor_mining.evaluation import candidate_eval as ce  # noqa: E402
+from cta_research.factor_mining.signals import altdata_signals as alt  # noqa: E402
 
 DATA = Path("data/external/alt")
 SOURCES = {"W": "cpc_precip", "E": "nino34", "N": "gdelt_tone", "S": "shfe_weekly", "Q": "hebei_pm25"}

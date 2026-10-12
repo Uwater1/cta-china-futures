@@ -10,8 +10,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cta_research.evaluation import adaptive_quarterly as aq
-from cta_research.evaluation import walkforward as wf
+from cta_research.factor_mining.evaluation import adaptive_quarterly as aq
+from cta_research.factor_mining.evaluation import walkforward as wf
 
 DATA = Path("data/ricecta/data")
 needs_data = pytest.mark.skipif(not DATA.exists(), reason="需要本地米筐/交易所数据")
@@ -101,7 +101,7 @@ def test_mv_projection_is_nonnegative_and_reduces_to_mu_under_identity() -> None
 
 
 def test_weights_frozen_within_quarter_and_stitch_complete() -> None:
-    from cta.signals.core import combine
+    from cta.factor_combination import combine
 
     dates = pd.bdate_range("2021-12-01", "2022-09-30")
     qs = wf.quarter_schedule(dates, "2022Q1", "2022Q3")
@@ -129,13 +129,13 @@ def test_weights_frozen_within_quarter_and_stitch_complete() -> None:
 def test_equal_weights_reproduce_static_v03_and_engine_runs_once_with_costs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from cta.backtest import engine as eng
     from cta.config import load_config
     from cta.data.exchanges.source import default_stitched
+    from cta.execution.backtest import engine as eng
+    from cta.factor_combination import combine
     from cta.instruments.specs import load_instruments
     from cta.pipeline import _receipts_of, _reg_events_of, build_panels, compute_signals
-    from cta.signals.core import combine
-    from cta_research.evaluation import adaptive_quarterly as _aq  # noqa: F401
+    from cta_research.factor_mining.evaluation import adaptive_quarterly as _aq  # noqa: F401
 
     cfg = load_config(Path("configs/strategy_v03.yaml"))
     specs = load_instruments()
@@ -201,8 +201,8 @@ def test_2022q1_weights_unchanged_when_future_truncated_or_perturbed() -> None:
     from cta.data.exchanges.source import default_stitched
     from cta.instruments.specs import load_instruments
     from cta.pipeline import _receipts_of, _reg_events_of, build_panels, compute_signals
-    from cta_research.factors.base import FactorInputs
-    from cta_research.factors.evaluate import evaluate_factor
+    from cta_research.factor_mining.candidates.base import FactorInputs
+    from cta_research.factor_mining.evaluation.evaluate import evaluate_factor
 
     cfg = load_config(Path("configs/strategy_v03.yaml"))
     specs = load_instruments()

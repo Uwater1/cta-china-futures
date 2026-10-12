@@ -1,7 +1,7 @@
 """多源基本面合成因子 MSF 的演示评估(预注册 docs/research/msf_prereg.md;试验 60;样本内演示,不构成证据)。
 
 步骤:
-1. 12 个成分(cta_research.factors.composite)各自点时审计 + 发布类成分公布日 ≤ 目标日 + 截断不变性(交易日历与面板截到 cut 重算,
+1. 12 个成分(cta_research.factor_mining.candidates.composite)各自点时审计 + 发布类成分公布日 ≤ 目标日 + 截断不变性(交易日历与面板截到 cut 重算,
    cut 及之前的信号须不变;原始数据的点时由各成分的可得日规则与审计保证,截断检查验证的是日历/面板这一层);
 2. 生产接线核对:`pipeline._extra_factors_of` 走出来的 MSF 与本脚本逐位一致,v0.6 目标暴露可由同一路径复现;
 3. 三臂(MSF 单独 / 静态基线 / 50-50 混合),基线分别为 v0.3(champion)与 v0.1(纯量价);
@@ -26,6 +26,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_research)
 
+from cta.analysis.metrics import TRADING_DAYS  # noqa: E402
 from cta.analysis.stats import newey_west_mean, paired_summary  # noqa: E402
 from cta.config import load_config  # noqa: E402
 from cta.data.exchanges.source import default_stitched  # noqa: E402
@@ -37,10 +38,9 @@ from cta.pipeline import (  # noqa: E402
     compute_signals,
     git_sha,
 )
-from cta.risk.metrics import TRADING_DAYS  # noqa: E402
-from cta_research.evaluation import candidate_eval as ce  # noqa: E402
-from cta_research.factors import composite as cp  # noqa: E402
-from cta_research.signals import fundamental_signals as fs  # noqa: E402
+from cta_research.factor_mining.candidates import composite as cp  # noqa: E402
+from cta_research.factor_mining.evaluation import candidate_eval as ce  # noqa: E402
+from cta_research.factor_mining.signals import fundamental_signals as fs  # noqa: E402
 
 OUT = Path("results/msf_demo")
 DOC = Path("docs/research/msf_demo.md")

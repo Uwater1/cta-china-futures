@@ -14,17 +14,17 @@ import numpy as np
 import pandas as pd
 
 from cta.analysis.attribution import Period
-from cta.backtest.engine import BacktestResult, run_backtest
-from cta.continuous.roll import SymbolPanel
+from cta.analysis.metrics import perf_stats
+from cta.data.continuous.roll import SymbolPanel
+from cta.execution.backtest.engine import BacktestResult, run_backtest
 from cta.instruments.specs import InstrumentTable
-from cta.risk.metrics import perf_stats
 
 RunFn = Callable[..., BacktestResult]
 SEG_KEYS = ("年化收益", "夏普(月频)", "最大回撤")
 
 
 def segment_stats(equity: pd.Series[Any], start: pd.Timestamp, end: pd.Timestamp) -> dict[str, float]:
-    """连续运行权益曲线在 [start, end] 段上的 年化收益 / 夏普(月频) / 最大回撤(复用 cta.risk.metrics.perf_stats)。"""
+    """连续运行权益曲线在 [start, end] 段上的 年化收益 / 夏普(月频) / 最大回撤(复用 cta.analysis.metrics.perf_stats)。"""
     eq = equity.dropna()
     idx = pd.DatetimeIndex(eq.index)
     seg = eq[(idx >= start) & (idx <= end)]

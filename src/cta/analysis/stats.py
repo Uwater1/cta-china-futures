@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from cta.risk.metrics import TRADING_DAYS, drawdown
+from cta.analysis.metrics import TRADING_DAYS, drawdown
 
 
 @dataclass(frozen=True)

@@ -13,10 +13,10 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_research)
-from cta.backtest.engine import run_backtest  # noqa: E402
 from cta.config import load_config  # noqa: E402
-from cta.continuous.roll import SymbolPanel  # noqa: E402
+from cta.data.continuous.roll import SymbolPanel  # noqa: E402
 from cta.data.exchanges.source import default_stitched  # noqa: E402
+from cta.execution.backtest.engine import run_backtest  # noqa: E402
 from cta.instruments.specs import load_instruments  # noqa: E402
 from cta.pipeline import _receipts_of, build_panels, compute_signals  # noqa: E402
 

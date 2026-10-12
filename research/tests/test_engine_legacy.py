@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from cta.continuous.roll import PANEL_COLS, SymbolPanel
+from cta.data.continuous.roll import PANEL_COLS, SymbolPanel
 from cta.instruments.specs import load_instruments
 from cta_research.legacy.engine_legacy import run_backtest
 

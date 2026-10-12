@@ -16,13 +16,13 @@ import numpy as np
 import pandas as pd
 
 from cta.analysis.attribution import net_by_symbol_day
-from cta.backtest.engine import BacktestResult
+from cta.analysis.metrics import TRADING_DAYS, drawdown
 from cta.config import StrategyConfig
+from cta.execution.backtest.engine import BacktestResult
+from cta.factor_combination import cap_gross_exposure, trade_buffer, vol_target_positions
 from cta.instruments.specs import InstrumentTable
-from cta.risk.metrics import TRADING_DAYS, drawdown
-from cta.signals.core import cap_gross_exposure, trade_buffer, vol_target_positions
-from cta_research.factors.base import FactorInputs
-from cta_research.factors.evaluate import correlation_table, evaluate_factor
+from cta_research.factor_mining.candidates.base import FactorInputs
+from cta_research.factor_mining.evaluation.evaluate import correlation_table, evaluate_factor
 
 Frame = pd.DataFrame
 RULE = {"min_sharpe": 0.40, "min_t": 2.0, "max_corr_base": 0.60, "max_corr_pair": 0.80}

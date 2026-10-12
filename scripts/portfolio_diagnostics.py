@@ -25,9 +25,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from cta.analysis import attribution as attr  # noqa: E402
 from cta.analysis.loo import leave_one_out, segment_stats  # noqa: E402
-from cta.backtest.engine import run_backtest  # noqa: E402
 from cta.config import load_config  # noqa: E402
 from cta.data.exchanges.source import default_stitched  # noqa: E402
+from cta.execution.backtest.engine import run_backtest  # noqa: E402
 from cta.instruments.specs import load_instruments  # noqa: E402
 from cta.pipeline import _receipts_of, _reg_events_of, build_panels, compute_signals, git_sha  # noqa: E402
 

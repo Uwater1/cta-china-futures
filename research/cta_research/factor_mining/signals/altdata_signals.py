@@ -1,6 +1,6 @@
 """另类数据五条的信号构造(预注册 docs/research/altdata_prereg.md 第 2–7 节;常数写死,不提供搜索接口)。
 
-输入是各数据管道的标准观测表(obs_date, available_day, key, value, meta...),输出是 cta_research.evaluation.candidate_eval.Candidate。
+输入是各数据管道的标准观测表(obs_date, available_day, key, value, meta...),输出是 cta_research.factor_mining.evaluation.candidate_eval.Candidate。
 点时规则由构造保证:
 - 任一特征 f(D) 的可得日 = 其全部输入观测可得日的最大值(滚动窗口内取最大);
 - 目标日 = 可得日或之后第一个交易日;信号从目标日起生效,直到下一条更新;超过失效期无新值 → NaN;
@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from cta_research.evaluation.candidate_eval import Candidate
+from cta_research.factor_mining.evaluation.candidate_eval import Candidate
 
 Frame = pd.DataFrame
 

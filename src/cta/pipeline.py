@@ -11,13 +11,14 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from cta.backtest.engine import BacktestResult, run_backtest
+from cta import factor_combination as combo
+from cta import factor_library as lib
+from cta.analysis.metrics import perf_stats, yearly
 from cta.config import StrategyConfig
-from cta.continuous.roll import SymbolPanel, build_symbol_panel
+from cta.data.continuous.roll import SymbolPanel, build_symbol_panel
 from cta.data.source import DataSource
+from cta.execution.backtest.engine import BacktestResult, run_backtest
 from cta.instruments.specs import InstrumentTable, load_instruments
-from cta.risk.metrics import perf_stats, yearly
-from cta.signals import core as sig
 
 BUILTIN_FACTORS = ("tsmom", "carry", "receipts_level")
 
@@ -111,8 +112,8 @@ def compute_signals(
     配置了板块菜单时需要 specs(取 asset_class),缺省读默认参数表。"""
     adj = _wide(panels, "adj_close")
     close, nxt, days = _wide(panels, "close"), _wide(panels, "next_close"), _wide(panels, "days_to_next")
-    vol = sig.realized_vol(adj, cfg.signals.vol_window)
-    ts = sig.tsmom(adj, tuple(cfg.signals.tsmom_lookbacks), vol=vol)
+    vol = lib.realized_vol(adj, cfg.signals.vol_window)
+    ts = lib.tsmom(adj, tuple(cfg.signals.tsmom_lookbacks), vol=vol)
     eligible = eligible_mask(panels, cfg)
     tf = cfg.signals.tick_filter
     if tf.enabled:
@@ -120,8 +121,8 @@ def compute_signals(
         ticks = pd.Series(
             {s: float(p.frame["tick"].iloc[0]) if "tick" in p.frame else np.nan for s, p in panels.items()}
         )
-        large = sig.large_tick_mask(close, _wide(panels, "roll"), ticks, eligible, tf.window, tf.top_quantile)
-        ts_slow = sig.tsmom(adj, tuple(tf.slow_lookbacks), vol=vol)
+        large = lib.large_tick_mask(close, _wide(panels, "roll"), ticks, eligible, tf.window, tf.top_quantile)
+        ts_slow = lib.tsmom(adj, tuple(tf.slow_lookbacks), vol=vol)
         ts = ts_slow.where(large, ts)
     ro = cfg.signals.reg_overlay
     if ro.enabled:
@@ -129,16 +130,16 @@ def compute_signals(
             raise ValueError(
                 "config enables reg_overlay but no reg_events were provided (need exchange params data)"
             )
-        ts = ts * sig.reg_overlay_mask(
+        ts = ts * lib.reg_overlay_mask(
             reg_events, pd.DatetimeIndex(adj.index), list(adj.columns), ro.window, ro.scale
         )
-    cr = sig.carry_signal(sig.carry(close, nxt, days), cfg.signals.carry_scale)
+    cr = lib.carry_signal(lib.carry(close, nxt, days), cfg.signals.carry_scale)
     parts: dict[str, pd.DataFrame] = {"tsmom": ts, "carry": cr}
     rl: pd.DataFrame | None = None
     if "receipts_level" in cfg.signals.weights:
         if receipts is None or receipts.empty:
             raise ValueError("config weights include receipts_level but no receipts data was provided")
-        rl = sig.receipts_level(receipts, pd.DatetimeIndex(adj.index), list(adj.columns), eligible)
+        rl = lib.receipts_level(receipts, pd.DatetimeIndex(adj.index), list(adj.columns), eligible)
         parts["receipts_level"] = rl
     # 外部因子(如多源合成因子 msf,docs/research/msf_prereg.md):只有配置权重里出现时才使用;现有配置不含,输出逐位不变
     extra_used: dict[str, pd.DataFrame] = {}
@@ -154,19 +155,19 @@ def compute_signals(
     if sc.sector_menu or sc.symbol_menu:
         specs = specs or load_instruments()
         sector_of = {s: specs[s].asset_class for s in adj.columns if s in specs.specs}
-        masks = sig.menu_masks(list(parts), list(adj.columns), sector_of, sc.sector_menu, sc.symbol_menu)
+        masks = combo.menu_masks(list(parts), list(adj.columns), sector_of, sc.sector_menu, sc.symbol_menu)
         for f, frame in list(parts.items()):
             keep = masks[f].reindex(frame.columns).fillna(True).astype(bool)
             # 不允许的品种整列置 NaN(DataFrame.where 不接受按列广播的 Series,故用乘法广播)
             parts[f] = frame.mul(keep.map({True: 1.0, False: np.nan}), axis=1)
     fw: pd.DataFrame | None = None
     if sc.factor_weighting == "inverse_vol":
-        tv = sig.inverse_vol_weights(parts)
+        tv = combo.inverse_vol_weights(parts)
         fw = pd.DataFrame(tv)
-        comb = sig.combine_tv(parts, tv)
+        comb = combo.combine_tv(parts, tv)
     else:
-        comb = sig.combine(parts, sc.weights)
-    raw_target = sig.vol_target_positions(
+        comb = combo.combine(parts, sc.weights)
+    raw_target = combo.vol_target_positions(
         comb.where(eligible),
         vol,
         adj,
@@ -175,13 +176,13 @@ def compute_signals(
         max_leverage_per_symbol=cfg.portfolio.max_leverage_per_symbol,
         update=cfg.portfolio.vol_scale_update,
     )
-    raw_target = sig.cap_gross_exposure(raw_target, cfg.portfolio.max_gross_exposure)
+    raw_target = combo.cap_gross_exposure(raw_target, cfg.portfolio.max_gross_exposure)
     # 交易缓冲:逐日相对上一日实际目标
     tgt = raw_target.copy()
     prev = pd.Series(0.0, index=tgt.columns)
     for d in tgt.index:
         row = tgt.loc[d].fillna(0.0)
-        buffered = sig.trade_buffer(row, prev, cfg.portfolio.exposure_buffer)
+        buffered = combo.trade_buffer(row, prev, cfg.portfolio.exposure_buffer)
         tgt.loc[d] = buffered
         prev = buffered
     return Signals(adj, vol, ts, cr, rl, fw, comb, eligible, tgt, extra_used)
@@ -219,7 +220,7 @@ def _extra_factors_of(
     这是生产代码加载研究代码(research/cta_research)的唯一入口,只在配置启用时按需导入(tests/test_boundaries.py)。"""
     if "msf" not in cfg.signals.weights:
         return None
-    from cta_research.factors.composite import build_msf
+    from cta_research.factor_mining.candidates.composite import build_msf
 
     return {"msf": build_msf(src, cfg, specs, panels)}
 

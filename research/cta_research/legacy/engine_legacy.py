@@ -22,7 +22,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from cta.continuous.roll import SymbolPanel
+from cta.data.continuous.roll import SymbolPanel
 from cta.instruments.specs import InstrumentTable
 
 

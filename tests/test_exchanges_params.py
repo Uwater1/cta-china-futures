@@ -278,7 +278,7 @@ def test_local_raws_layout(tmp_path: Path) -> None:
 def test_paper_ingest_all_includes_params(monkeypatch: pytest.MonkeyPatch) -> None:
     """纸面 ingest_all 默认拉 params:三所直连结果并入各所状态,大商所记 skipped_needs_browser;行情等仍按原 kinds 拉。"""
     from cta.data.exchanges import czce, dce, ine, shfe
-    from cta.paper import runner
+    from cta.execution.paper import runner
 
     calls: dict[str, object] = {}
 

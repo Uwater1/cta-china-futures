@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cta_research.factors import composite as cp
+from cta_research.factor_mining.candidates import composite as cp
 
 DATA = Path("data/ricecta/data")
 needs_data = pytest.mark.skipif(not DATA.exists(), reason="需要本地米筐/交易所数据")
@@ -44,7 +44,7 @@ def test_completed_month_ends_pre_holiday_month_end_is_complete() -> None:
 
 
 def test_release_audit_weekend_publication_targets_next_session() -> None:
-    from cta_research.signals import fundamental_signals as fs
+    from cta_research.factor_mining.signals import fundamental_signals as fs
 
     dates = pd.bdate_range("2024-03-25", "2024-04-05")
     rel = [

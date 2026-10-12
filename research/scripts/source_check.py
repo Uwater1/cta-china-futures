@@ -20,12 +20,12 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_research)
 
+from cta.analysis.metrics import perf_stats  # noqa: E402
 from cta.analysis.stats import paired_summary  # noqa: E402
 from cta.config import load_config  # noqa: E402
 from cta.data.exchanges.source import ExchangeSource, default_stitched  # noqa: E402
 from cta.instruments.specs import load_instruments  # noqa: E402
 from cta.pipeline import run_research  # noqa: E402
-from cta.risk.metrics import perf_stats  # noqa: E402
 
 RQ = Path("data/ricecta/data")
 CONFIG = Path("configs/strategy_v03.yaml")

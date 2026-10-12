@@ -101,7 +101,7 @@ def live(
     ),
 ) -> None:
     """按 as-of 日生成次日目标手数与订单差异,并留存输入快照。"""
-    from cta.live.orders import generate_orders
+    from cta.execution.live.orders import generate_orders
 
     cfg = load_config(config)
     specs = load_instruments()
@@ -113,7 +113,7 @@ def live(
 @app.command()
 def report(run: Path = typer.Argument(..., help="results/<digest> 目录")) -> None:
     """从已完成的回测结果生成 report.md 与图。"""
-    from cta.report.build import build_report
+    from cta.analysis.report import build_report
 
     typer.echo(f"-> {build_report(run)}")
 
@@ -134,8 +134,8 @@ def paper(
     """纸面交易:step 处理单个交易日(拉数据 → 成交昨日订单并盯市 → 生成今日订单);catchup 补跑到指定日;status 打印账本。"""
     import pandas as pd
 
-    from cta.paper import runner
-    from cta.paper.book import PaperBook
+    from cta.execution.paper import runner
+    from cta.execution.paper.book import PaperBook
 
     d = pd.Timestamp(date) if date else pd.Timestamp.today().normalize()
     cfg = load_config(config)

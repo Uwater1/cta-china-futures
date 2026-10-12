@@ -3,7 +3,7 @@
 站在"已有量价因子"的视角评估生产中的非量价因子 receipts_level(仓单水平,v0.3 的第三个因子):
 - 量价基线 = v0.1(时序动量 + 展期收益,configs/strategy.yaml),与正式 D 臂逐位一致;
 - 候选 = v0.3 流水线算出的 receipts_level 信号(与生产完全相同);
-- 三臂:仓单单独 / 量价基线 / 50-50 事前风险预算混合(cta_research.evaluation.candidate_eval,同一引擎、成本、执行);
+- 三臂:仓单单独 / 量价基线 / 50-50 事前风险预算混合(cta_research.factor_mining.evaluation.candidate_eval,同一引擎、成本、执行);
 - 另附因子评估器口径的 sleeve 相关性(results/adaptive_quarterly_v1/sleeve_returns.csv)与逐品种覆盖。
 用法:python research/scripts/non_pv_factor_card.py
 输出:results/non_pv_factor_card/
@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_re
 from cta.config import load_config  # noqa: E402
 from cta.data.exchanges.source import default_stitched  # noqa: E402
 from cta.pipeline import _receipts_of, _reg_events_of, compute_signals  # noqa: E402
-from cta_research.evaluation import candidate_eval as ce  # noqa: E402
+from cta_research.factor_mining.evaluation import candidate_eval as ce  # noqa: E402
 
 OUT = Path("results/non_pv_factor_card")
 SEED = 20261005

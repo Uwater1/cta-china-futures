@@ -14,11 +14,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_research)
 from cta.config import load_config  # noqa: E402
 from cta.data.source import RicequantParquetSource  # noqa: E402
+from cta.factor_combination import combine  # noqa: E402
 from cta.instruments.specs import load_instruments  # noqa: E402
 from cta.pipeline import build_panels  # noqa: E402
-from cta.signals.core import combine  # noqa: E402
-from cta_research.factors.base import REGISTRY, FactorInputs  # noqa: E402
-from cta_research.factors.evaluate import FactorResult, evaluate_factor  # noqa: E402
+from cta_research.factor_mining.candidates.base import REGISTRY, FactorInputs  # noqa: E402
+from cta_research.factor_mining.evaluation.evaluate import FactorResult, evaluate_factor  # noqa: E402
 
 IS_END = pd.Timestamp("2021-12-31")
 ap = argparse.ArgumentParser()

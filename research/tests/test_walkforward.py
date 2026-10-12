@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cta_research.evaluation import walkforward as wf
+from cta_research.factor_mining.evaluation import walkforward as wf
 
 DATA = Path("data/ricecta/data")
 needs_data = pytest.mark.skipif(not DATA.exists(), reason="需要本地米筐/交易所数据")
@@ -101,7 +101,7 @@ def test_targets_from_comb_is_deterministic() -> None:
     adj = pd.DataFrame(
         100 * np.exp(np.cumsum(rng.normal(0, 0.01, (300, 2)), axis=0)), index=dates, columns=["A", "B"]
     )
-    from cta.signals.core import realized_vol
+    from cta.factor_library import realized_vol
 
     vol = realized_vol(adj, cfg.signals.vol_window)
     comb = pd.DataFrame(np.sign(rng.normal(size=(300, 2))), index=dates, columns=["A", "B"])
@@ -115,9 +115,9 @@ def test_targets_from_comb_is_deterministic() -> None:
 @needs_data
 def test_static_v03_baseline_reproduces_report_numbers() -> None:
     """静态 v0.3 经本模块的 目标暴露 → 引擎 路径,与正式基线(results/settle_baseline D 臂)逐位一致。"""
-    from cta.backtest.engine import run_backtest
     from cta.config import load_config
     from cta.data.exchanges.source import default_stitched
+    from cta.execution.backtest.engine import run_backtest
     from cta.instruments.specs import load_instruments
     from cta.pipeline import _receipts_of, _reg_events_of, build_panels, compute_signals, summarize_result
 
@@ -164,11 +164,11 @@ def test_quarter_selection_only_uses_data_up_to_cutoff() -> None:
     """2022Q1 模型(cutoff 2021-12-31):用截断到 cutoff 的面板、以及在 cutoff 之后注入扰动的数据,训练统计与选择完全不变。"""
     from cta.config import load_config
     from cta.data.exchanges.source import default_stitched
+    from cta.factor_combination import combine
     from cta.instruments.specs import load_instruments
     from cta.pipeline import build_panels
-    from cta.signals.core import combine
-    from cta_research.factors.base import FactorInputs
-    from cta_research.factors.library import ALL_FACTORS
+    from cta_research.factor_mining.candidates.base import FactorInputs
+    from cta_research.factor_mining.candidates.catalog import ALL_FACTORS
 
     cfg = load_config()
     specs = load_instruments()

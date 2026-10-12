@@ -26,14 +26,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # research/(cta_research)
 
 from cta.analysis.loo import segment_stats  # noqa: E402
+from cta.analysis.metrics import TRADING_DAYS  # noqa: E402
 from cta.analysis.stats import paired_summary  # noqa: E402
 from cta.data.exchanges.source import default_stitched  # noqa: E402
+from cta.factor_library import realized_vol  # noqa: E402
 from cta.pipeline import _wide, build_panels, eligible_mask  # noqa: E402
-from cta.risk.metrics import TRADING_DAYS  # noqa: E402
-from cta.signals.core import realized_vol  # noqa: E402
-from cta_research.evaluation import candidate_eval as ce  # noqa: E402
-from cta_research.factors import REGISTRY, FactorInputs  # noqa: E402
-from cta_research.signals import fundamental_signals as fs  # noqa: E402
+from cta_research.factor_mining.candidates import REGISTRY, FactorInputs  # noqa: E402
+from cta_research.factor_mining.evaluation import candidate_eval as ce  # noqa: E402
+from cta_research.factor_mining.signals import fundamental_signals as fs  # noqa: E402
 
 RQ = "data/ricecta/data"
 START = "2016-01-04"

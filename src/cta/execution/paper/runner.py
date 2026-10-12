@@ -22,9 +22,9 @@ from cta.data.exchanges.base import Kind, Store
 from cta.data.exchanges.calendar import load_holidays
 from cta.data.exchanges.source import ExchangeSource, default_stitched
 from cta.data.source import DataSource
+from cta.execution.live.orders import generate_orders
+from cta.execution.paper.book import DEFAULT_DIR, BookIntegrityError, PaperBook
 from cta.instruments.specs import InstrumentTable, load_instruments
-from cta.live.orders import generate_orders
-from cta.paper.book import DEFAULT_DIR, BookIntegrityError, PaperBook
 
 SETTLE_TIME_BEIJING = "16:30"  # 三所日行情/结算价在收盘结算后发布;此前网站上的"当日文件"是盘中快照
 

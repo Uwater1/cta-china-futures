@@ -25,12 +25,12 @@ def _quotes_for(panels: dict, d: pd.Timestamp) -> dict:  # type: ignore[type-arg
 
 
 def test_engine_and_paper_path_agree_day_by_day(tmp_path: Path) -> None:
-    from cta.backtest.engine import run_backtest
     from cta.config import load_config
     from cta.data.exchanges.source import default_stitched
     from cta.execution import ledger
+    from cta.execution.backtest.engine import run_backtest
+    from cta.execution.live.orders import generate_orders
     from cta.instruments.specs import load_instruments
-    from cta.live.orders import generate_orders
     from cta.pipeline import _receipts_of, _reg_events_of, build_panels, compute_signals
 
     cfg = load_config(Path("configs/strategy_v03.yaml"))

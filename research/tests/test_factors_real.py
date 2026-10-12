@@ -16,8 +16,8 @@ def test_factors_identical_when_future_removed() -> None:
     from cta.data.source import RicequantParquetSource
     from cta.instruments.specs import load_instruments
     from cta.pipeline import build_panels
-    from cta_research.factors.base import FactorInputs
-    from cta_research.factors.library import ALL_FACTORS
+    from cta_research.factor_mining.candidates.base import FactorInputs
+    from cta_research.factor_mining.candidates.catalog import ALL_FACTORS
 
     cfg = load_config().model_copy(update={"data": DataCfg(settle="vendor_close")})  # 纯米筐源无官方结算价
     specs = load_instruments()

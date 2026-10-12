@@ -1,6 +1,6 @@
 """新数据因子(design_log 九):会员持仓排名与仓单日报 → 日频品种级序列与四个预注册因子。
 
-数据来自 data/exchanges(交易所直连,点时落盘)。这里只做"数据 → 序列 → 信号",评估仍用 cta_research.factors.evaluate。
+数据来自 data/exchanges(交易所直连,点时落盘)。这里只做"数据 → 序列 → 信号",评估仍用 cta_research.factor_mining.evaluation.evaluate。
 - H-POS-A 套保压力(仅上期所有"非期货公司会员"分类):HP = (非期货公司多头 − 空头)/品种总持仓;因子 = −HP 的 60 日 z(时序)。
 - H-POS-B 知情席位跟随:会员评分冻结窗口 250 日 + 5 日禁运,每年重估;队列 = 每品种前 3;信号 = Σ队列 Δnp / OI 的 60 日 z。
 - H-REC 仓单变化:−(log(1+仓单)_t − log(1+仓单)_{t−21}) 的横截面 z;H-REC-L:−仓单在自身 252 日窗口的分位 的横截面 z。
@@ -18,7 +18,7 @@ import pandas as pd
 from scipy import stats as sps
 
 from cta.data.exchanges.base import Store
-from cta.signals.core import receipts_level, zscore_xs
+from cta.factor_library import receipts_level, zscore_xs
 
 Frame = pd.DataFrame
 CACHE = Path("results/newdata")

@@ -7,8 +7,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from cta.execution.paper.book import PaperBook, Position
 from cta.instruments.specs import load_instruments
-from cta.paper.book import PaperBook, Position
 
 
 def _dq(rows: dict[str, tuple[float, float, float]]) -> pd.DataFrame:
@@ -96,7 +96,7 @@ def test_fill_mark_and_roll_reconcile(tmp_path: Path) -> None:
 
 
 def test_settlement_gate() -> None:
-    from cta.paper.runner import settlement_published
+    from cta.execution.paper.runner import settlement_published
 
     d = pd.Timestamp("2026-09-17")
     assert not settlement_published(d, now=pd.Timestamp("2026-09-17 11:21"))
@@ -169,7 +169,7 @@ def test_roll_is_atomic(tmp_path: Path) -> None:
 def test_mark_to_market_requires_finite_settle(tmp_path: Path) -> None:
     import pytest
 
-    from cta.paper.book import BookIntegrityError
+    from cta.execution.paper.book import BookIntegrityError
 
     specs = load_instruments()
     book = PaperBook(tmp_path, initial_capital=1_000_000.0)
@@ -195,7 +195,7 @@ def test_equity_csv_is_idempotent_per_date(tmp_path: Path) -> None:
 def test_save_refuses_non_finite_state(tmp_path: Path) -> None:
     import pytest
 
-    from cta.paper.book import BookIntegrityError
+    from cta.execution.paper.book import BookIntegrityError
 
     book = PaperBook(tmp_path, initial_capital=1_000_000.0)
     book.state.equity = float("nan")
@@ -209,7 +209,7 @@ def test_step_is_all_or_nothing(tmp_path: Path, monkeypatch: object) -> None:
     import pytest
 
     from cta.config import load_config
-    from cta.paper import runner
+    from cta.execution.paper import runner
 
     specs = load_instruments()
     cfg = load_config(Path("configs/strategy.yaml"))
@@ -274,7 +274,7 @@ def test_step_leaves_no_partial_artifacts_when_order_writing_fails(
     import pytest
 
     from cta.config import load_config
-    from cta.paper import runner
+    from cta.execution.paper import runner
 
     specs = load_instruments()
     cfg = load_config(Path("configs/strategy.yaml"))

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cta_research.signals import options_signals as os_
+from cta_research.factor_mining.signals import options_signals as os_
 
 
 def test_black76_roundtrip() -> None:

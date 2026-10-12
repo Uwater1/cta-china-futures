@@ -66,29 +66,27 @@
 ## 目录
 
 ```
-src/cta/         生产代码:每天真正用来算目标仓位、出单、记账的部分
-  data/          米筐导出读取;四家交易所官网数据的抓取、解析、交易日历
-  continuous/    换月:决定每天持有哪个合约,拼回溯复权连续价
-  signals/       三个生产信号与仓位计算(趋势、展期收益、仓单水平;波动率目标)
-  execution/     目标暴露 → 整手 → 成交与记账(回测、出单、纸面三方共用)
-  backtest/ live/ paper/   回测引擎、每日出单、纸面账本
-  analysis/      只读诊断:纸面验收、归因、配对比较统计
-research/        研究代码,不参与出单
-  cta_research/  factors(候选因子库、多源合成因子 MSF)、signals(基本面/另类数据/期权信号)、
-                 evaluation(三臂候选评价、walk-forward)、altdata(另类数据抓取)、legacy(冻结的旧引擎)
-  scripts/       每轮研究的脚本(结果写到 docs/research/)
-  tests/         研究代码的测试
-configs/         策略配置(五本纸面账、样例、v0.6 演示)、合约参数、休市日历、纸面验收协议;experiments/ 研究用配置
-scripts/         运维:paper_daily.sh(每日纸面入口)、fetch_exchange_data.sh(回填交易所数据)、setup_env.sh、
-                 make_sample_data.py、paper_acceptance.py、portfolio_diagnostics.py、capital_scan.py
-paper/           五本纸面账:v01、v03(champion)、v03p、v01r、v05
-docs/            design_log.md(预注册与全部试验)、architecture.md、deployment.md;research/、data/ 见 docs/README.md
-report/          当前报告 v0.5;archive/ 历史版本
-tests/           生产代码的测试:单测、前视截断、研究/纸面路径逐日一致、样例数据端到端
-data/sample/     公开样例数据(见下);data/benchmarks/ 是南华指数;其余 data/ 与 results/ 不入库
+src/cta/             生产代码,按流程分成五块(每块有自己的 CLAUDE.md)
+  data/              ① 数据层:米筐导出读取;四家交易所官网数据的抓取、解析、交易日历;换月(决定每天持有哪个合约)
+  factor_library/    ③ 因子库:已经采用、真正在交易的因子(趋势、展期收益、仓单水平)
+  factor_combination/ ④ 因子组合:把几个因子合成一个信号,再按波动率换算成目标仓位
+  execution/         ⑤ 执行层:目标仓位 → 整手(plan)→ 成交与记账(ledger);回测、每日出单、纸面账三个驱动共用
+  analysis/          ⑥ 只读分析:绩效、配对比较、归因、纸面验收、报告
+research/            研究代码,不参与出单
+  cta_research/factor_mining/   ② 因子挖掘:候选因子库、各类研究信号、评价工具
+  cta_research/altdata/         另类数据抓取;legacy/ 冻结的旧引擎
+  scripts/ tests/               每轮研究的脚本(结果写到 docs/research/)与研究代码的测试
+configs/             策略配置(五本纸面账、样例、v0.6 演示)、合约参数、休市日历、纸面验收协议;experiments/ 研究用配置
+scripts/             运维:paper_daily.sh(每日纸面入口)、fetch_exchange_data.sh(回填交易所数据)、setup_env.sh、
+                     make_sample_data.py、paper_acceptance.py、portfolio_diagnostics.py、capital_scan.py
+paper/               五本纸面账:v01、v03(champion)、v03p、v01r、v05
+docs/                design_log.md(预注册与全部试验)、architecture.md、deployment.md;research/、data/ 见 docs/README.md
+report/              当前报告 v0.5;archive/ 历史版本
+tests/               生产代码的测试:单测、前视截断、研究/纸面路径逐日一致、样例数据端到端、代码边界与阶段方向
+data/sample/         公开样例数据(见下);data/benchmarks/ 是南华指数;其余 data/ 与 results/ 不入库
 ```
 
-生产代码不导入研究代码。唯一例外是可选的多源合成因子:配置里启用 `msf` 时,`cta.pipeline` 才去加载 `cta_research`。`tests/test_boundaries.py` 检查这一点。
+生产代码不导入研究代码。唯一例外是可选的多源合成因子:配置里启用 `msf` 时,`cta.pipeline` 才去加载 `cta_research`。`tests/test_boundaries.py` 检查这一点;`tests/test_stage_layout.py` 检查各阶段的依赖方向(数据层 → 因子库 → 因子组合 → 执行层,不许反过来)。
 
 ## 安装与运行
 

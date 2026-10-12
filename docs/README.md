@@ -1,17 +1,21 @@
 # 文档索引
 
-2026-10-06 仓库整理过一次(经过见 [design_log.md](design_log.md) 第二十六节),2026-10-07 又把研究代码与生产代码分开(第二十七节),两次**文件名都没改**。此前写成的文字(设计日志一至二十六、各预注册与结果、`report/archive/`)里的旧路径不改写,对照如下。例外:`research/non_pv_factor_card.md` 是现行说明书,账本路径已改为 `paper/v03/` 并注明旧名,脚本路径已改为 `research/scripts/`;`msf_demo.py` 对 `msf_prereg.md` 的引用在 10-06 改成了当时的新路径;`msf_prereg.md` 正文里的旧路径没有改。
+2026-10-06 仓库整理过一次(经过见 [design_log.md](design_log.md) 第二十六节),2026-10-07 又把研究代码与生产代码分开(第二十七节),2026-10-12 再按流程阶段分成数据层、因子挖掘、因子库、因子组合、执行层、分析六块(第二十九节;每个阶段文件夹有自己的 CLAUDE.md)。除表中注明的改名与拆分外,**文件名都没改**。此前写成的文字(设计日志一至二十六、各预注册与结果、`report/archive/`)里的旧路径不改写,对照如下。例外:`research/non_pv_factor_card.md` 是现行说明书,账本路径已改为 `paper/v03/` 并注明旧名,脚本路径已改为 `research/scripts/`;`msf_demo.py` 对 `msf_prereg.md` 的引用在 10-06 改成了当时的新路径;`msf_prereg.md` 正文里的旧路径没有改。
 
 | 旧路径 | 现在 |
 |---|---|
 | `docs/<文件>` | `docs/research/<文件>` 或 `docs/data/<文件>`(design_log、architecture、deployment、drills 不变) |
 | `scripts/<名>.py`(研究脚本;2026-10-06 先移到 `scripts/research/`) | `research/scripts/<名>.py`(paper_daily.sh、paper_acceptance.py、portfolio_diagnostics.py、capital_scan.py 仍在 `scripts/`) |
 | `scripts/rqdata_export_options.py` | `research/scripts/rqdata_export_options.py` |
-| `src/cta/factors/`(`cta.factors.*`) | `research/cta_research/factors/`(`cta_research.factors.*`) |
-| `cta.analysis.candidate_eval`、`walkforward`、`adaptive_quarterly` | `cta_research.evaluation.*`(`research/cta_research/evaluation/`) |
-| `cta.analysis.altdata_signals`、`fundamental_signals`、`options_signals` | `cta_research.signals.*`(`research/cta_research/signals/`) |
+| `src/cta/factors/`(`cta.factors.*`;10-07 曾在 `cta_research.factors.*`) | `research/cta_research/factor_mining/candidates/`(`library.py` 改名 `catalog.py`;`evaluate.py` 在 `factor_mining/evaluation/`) |
+| `cta.analysis.candidate_eval`、`walkforward`、`adaptive_quarterly`(10-07 曾在 `cta_research.evaluation.*`) | `cta_research.factor_mining.evaluation.*` |
+| `cta.analysis.altdata_signals`、`fundamental_signals`、`options_signals`(10-07 曾在 `cta_research.signals.*`) | `cta_research.factor_mining.signals.*` |
 | `src/cta/data/alt/`(`cta.data.alt.*`) | `research/cta_research/altdata/`(`cta_research.altdata.*`) |
 | `cta.backtest.engine_legacy` | `cta_research.legacy.engine_legacy` |
+| `cta.signals.core`(`src/cta/signals/core.py`) | 拆成 `cta.factor_library`(`common`、`trend`、`term_structure`、`warehouse_receipts`、`gates`)与 `cta.factor_combination`(`weighting`、`portfolio`);函数体逐字搬移 |
+| `cta.continuous.roll` | `cta.data.continuous.roll` |
+| `cta.backtest.engine`、`cta.live.orders`、`cta.paper.{book,runner}` | `cta.execution.backtest.engine`、`cta.execution.live.orders`、`cta.execution.paper.{book,runner}` |
+| `cta.risk.metrics`、`cta.report.build` | `cta.analysis.metrics`、`cta.analysis.report` |
 | 上述研究代码的测试 `tests/test_<名>.py` | `research/tests/test_<名>.py` |
 | `paper/`(当时指 v0.1 账本) | `paper/v01/`;现在的 `paper/` 是五本账的父目录 |
 | `paper_v03/`、`paper_v03p/`、`paper_v01r/`、`paper_v05/` | `paper/v03/`、`paper/v03p/`、`paper/v01r/`、`paper/v05/` |
@@ -47,7 +51,7 @@
 | 二十四 | 非量价因子说明书(仓单水平) | `non_pv_factor_card.md` |
 | 二十五 | 多源基本面合成因子 MSF 演示 | `msf_prereg.md`、`msf_demo.md` |
 | 二十七 | 数据路径校验:只用交易所公开数据复现正式基线;选合约规则的影响(不计试验) | `source_check.md` |
-| 二十八 | ewmac 基本盘(试验 61,前向检验) | `ewmac_base_prereg.md` |
+| 二十八 | ewmac 基本盘(试验 61,前向检验) | `ewmac_base_prereg.md`、`ewmac_base.md` |
 
 ## data/ — 数据源、合约参数核验、基线
 

@@ -1,0 +1,4 @@
+date,symbol,contract,lots,status,reason,leg,price,fee,slippage,realized_pnl
+2026-10-12,AL,AL2611,1.0,filled,,rebalance,23495.0,3.0,25.0,0.0
+2026-10-12,JD,JD2612,4.0,filled,,rebalance,3631.0,21.786,40.0,0.0
+2026-10-12,NI,NI2611,-1.0,filled,,rebalance,119220.0,3.0,10.0,0.0

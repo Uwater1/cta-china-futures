@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-15",
+  "book": "paper/v03",
+  "mode": "账本副本:paper/v03 取自提交 c2953ad(last_settled 2026-10-14),放在独立 worktree(10a9b1c)的 paper/drill_v03;data/exchanges 为复制件(不是软链接),主检出与真实账本未动",
+  "injected": "删除副本数据仓的 data/exchanges/CZCE/quotes/2026/20261015.parquet 后运行 .venv/bin/python -m cta.cli paper catchup --date 2026-10-15 --no-ingest --book paper/drill_v03 --config configs/strategy_v03.yaml",
+  "detected": {
+    "failed_json": true,
+    "exit_code": 1,
+    "stage": "settle",
+    "error": "LedgerIntegrityError: held contracts without a finite settlement price: ['MA:MA2701', 'SA:SA2701', 'SR:SR2701', 'TA:TA2701', 'CF:CF2701']",
+    "duration_s": 3,
+    "state_unchanged": "state.json 的 last_settled 仍为 2026-10-14;.txn/2026-10-15 留作取证",
+    "notification": "未测:通知由 scripts/paper_daily.sh 发出(osascript),CLI 不发;副本上不运行每日脚本(它会提交并推送)。真实失败 2026-09-23、10-08 的通知见 paper/log/cron.log"
+  },
+  "recovered": {
+    "action": "把同一文件从主检出复制回副本数据仓,重跑同一条 catchup 命令",
+    "exit_code": 0,
+    "duration_s": 18
+  },
+  "outcome": "state.json 推进到 2026-10-15,FAILED.json 自动清除,equity.csv 无重复日期;fills/2026-10-15.csv、equity.csv、positions.csv、orders/2026-10-15/orders.csv、log/2026-10-15.json、state.json 与真实 paper/v03 逐字节相同;orders/2026-10-15/snapshot.json 只差 git_sha(10a9b1c vs c2953ad)与数据仓路径及由路径算出的清单哈希",
+  "operator": "Claude(代理),用户 s296he 授权;北京时间 2026-10-16 04:05",
+  "log": "scratchpad drill.sh 输出已摘录到 docs/design_log.md 三十一"
+}

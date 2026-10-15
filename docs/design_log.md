@@ -993,3 +993,45 @@ M1(主):三个核心 sleeve(tsmom、carry、receipts_level 各自按波动率目
 - 纸面重放:五本账分别取 10-08、10-09 之前的状态,主线与修复后代码各跑一次 `paper catchup --no-ingest`,10 组输出逐字节相同。
 - 六个研究配置的 golden 输出与主线逐字节相同;全量测试 322 项通过(主线 321 项加本次回归测试)。
 - 结论同 30.2:在追加 2027 年假期之前,生产行为不变。
+
+## 三十一、验收工具补齐、故障恢复演练与文档更正(2026-10-16 北京;不计试验,champion、五本纸面账配置与状态不变)
+
+### 31.1 起因
+10-15 做了一次只读的全仓库审计(5 个维度各一名审计者,每条发现再由一名独立复核者核对;24 条发现确认 22 条,合并同类后 14 项)。与 12-16 验收报告直接相关的 4 项:
+1. 故障恢复演练(18.2 第 5 项)还没做,报告该节为 PENDING;`docs/drills/README.md` 的示例若在软链接数据的 worktree 里照做,删的是主检出里每日任务共用的文件。
+2. 验收程序缺 18.2 第 3 项(滑点校准)与第 4 项的持仓部分(只做了权益对账);18.7 写的"按 18.2 实现"不完整。
+3. 09-23、10-08 两次失败日修复后 FAILED.json 被删、日志被覆盖,报告显示 0 次失败。
+4. 漂移检查把每日纸面提交导致的 git_sha 变化全部报成未声明(每本账 8 条、共 40 条),真正的代码切换被淹没;协议清单只声明了 09-23 一次。
+其余为文档过时(31.6)和 12-15 之后的事项(31.5、TODO)。
+
+### 31.2 工具补齐(只改 `src/cta/analysis/paper_acceptance.py`、`scripts/paper_acceptance.py`、协议清单与测试;按 18.2 补齐,不改任何阈值或判定规则)
+- 持仓对账(18.2 第 4 项):逐日核 `log/<T>.json` 持仓 = `log/<T−1>.json` 持仓 + `fills/<T>.csv` 成交腿(filled;换月两腿按合约分别累计),且 = `orders/<T−1>/orders.csv` 的 target(该品种各腿都成交)或 held(有腿未成交);最新一日再核 `state.json` = 日志 = `positions.csv`。按 ISO 周汇总。`--strict` 现在也看持仓对账。
+- 滑点校准(18.2 第 3 项,只报告):每条成交腿取交易所当日文件的开盘价与成交均价 = 成交额 × 单位 / (成交量 × 乘数),上期所、能源中心成交额单位万元,大商所、郑商所为元(09-23 → 10-15 逐日核对,换算后均价/结算价的中位数都在 1 ± 0.01 内);输出开盘 − 均价(跳数、bp)、成交 − 开盘(账本假设 ±1 跳)、side × (成交 − 均价)。交易所不公布首 bar 均价,18.2 写的就是全日均价。
+- 失败记录:除工作区外,从 git 历史读每次加入的 FAILED.json(`git log --diff-filter=A -- '*FAILED.json'`;每日脚本把失败日连 FAILED.json 一起提交),旧目录名(= 账本标签)与现目录都映射;该日现已有权益行且无 FAILED.json → "已修复(重放补齐)",与 18.2 第 1 项同口径。
+- 漂移:git_sha 变化先用 `git diff --name-only old new -- <账本运行路径>` 判断,账本运行路径 = `src/cta`、`scripts/paper_daily.sh`、`requirements*.txt`、五本账配置、`configs/instruments.yaml`、`configs/holidays.csv`(`.md` 不算);没改动 → 记"仅非账本路径的提交"、算已声明;改了 → 必须在清单里(同日 effective,或新增的 from → to),否则列出改动文件。协议清单补登记 4 次代码切换,每条注明等价性证据所在节:09-28(6ca29ab → f632778,只新增三个研究模块,纸面路径不导入)、10-08(214cef1 → 091c7aa,二十六、二十五)、10-09(091c7aa → 1ca982a,27.1、27.5、27.3)、10-12(1ca982a → c8d08df,二十九、三十)。两个钉住的摘要值不动。
+- 报告章节由 0–8 变为 0–10(新增 4 持仓对账、8 滑点校准,其余顺延);测试 5 → 8 项(持仓注入错误、滑点单位与缺行情、临时 git 仓库里的已修复失败日与按路径分类的漂移)。
+
+### 31.3 首次实跑(PRELIMINARY,2026-09-23 → 10-15,11 个预期交易日)
+- 五本账:11/11 天有数据;成交率 100%(160 条腿,0 条 blocked);权益对账逐日一致;持仓对账 55 条逐日一致,最新一日 state.json / 日志 / positions.csv 一致。
+- 失败记录:每本账 2 次(09-23、10-08,均为大商所抓取超时 → settle 阶段缺结算价),全部已修复;此前报告显示 0。
+- 漂移:未声明 0 条(此前每本账 8 条);窗口内 10 次 git_sha 变化中 5 次按清单声明、5 次判定为仅非账本路径的提交。
+- 滑点(只报告):成交 − 开盘逐腿恰为 +1 跳(买)/ −1 跳(卖),与账本假设一致;开盘 − 当日均价全体中位 +7.8 跳、均值 +20 跳、平均 |49| bp;按账本中位:v01/v01r +3.6、v03 +9.8、v03p +8.3、v05 +9.8 跳。开盘是单个成交价、均价是全日,差异大是正常的;这项不判定,12-16 报告里按品种看。
+- 演练:DONE(31.4)。
+
+### 31.4 故障恢复演练(18.2 第 5 项;证据 `docs/drills/2026-10-16_czce_quotes_copy.json`)
+- 在独立 worktree(10a9b1c)里做:`data/exchanges` 复制(不软链接),账本副本 `paper/drill_v03` 取自 c2953ad(last_settled 10-14)。注入:删除副本数据仓 `CZCE/quotes/2026/20261015.parquet`,运行 `paper catchup --date 2026-10-15 --no-ingest`。
+- 检出:3 秒后退出码 1,`FAILED.json`(stage settle,`LedgerIntegrityError: held contracts without a finite settlement price`,MA、SA、SR、TA、CF 的 2701),state.json 仍为 10-14,`.txn/2026-10-15` 留作取证。
+- 恢复:复制回文件、重跑同一命令,18 秒,退出码 0,FAILED.json 自动清除,equity.csv 无重复日期;`fills/2026-10-15.csv`、`equity.csv`、`positions.csv`、`orders/2026-10-15/orders.csv`、`log/2026-10-15.json`、`state.json` 与真实 paper/v03 逐字节相同,`snapshot.json` 只差 git_sha 与数据仓路径(及由路径算出的清单哈希)。
+- 通知一项未测(CLI 不发,`paper_daily.sh` 才发;副本上不能跑它);09-23、10-08 两次真实失败的通知记录在 `paper/log/cron.log`。副本做法写进 `docs/drills/README.md`。
+
+### 31.5 试验 61 的冻结代码与日历修复
+- 冻结代码 5626548 早于 f61b0f8,其 `TradingCalendar` 默认读不存在的 `data/exchanges/calendar/holidays.csv`,假期表为空。回放到评估日 D 时,D 之前到期的合约用行情文件里的实际交易日,两版相同;只有 D 之后到期的持有或次主力合约会因交易所规则到期日的顺延差一天(主要波及 v0.3 的展期一臂;ewmac 只用 adj_close,到期日差一天不改变合约先后)。
+- 处理(预注册 4.2:冻结版有错时两版都报告,判读固定用冻结版):12-15 检查点若在追加 2027 假期之前运行,两版相同,只报一份;2027-03-31、2027-09-30 两版都报告,修正版 = 5626548 + f61b0f8 那一行改动,在独立 worktree 里跑,并把主检出当时的 `configs/holidays.csv` 复制进去。缺假期不是前视,试验仍然有效。不要在 `data/exchanges/calendar/` 下放 holidays.csv,否则冻结版会悄悄读到它。
+
+### 31.6 文档更正(10a9b1c 与本次提交;不改任何结果)
+- 四处"2027 年假期公告后就补"(含 10-12 写的 `src/cta/data/CLAUDE.md`)与 30.3 矛盾,统一改为 12-16 → 12-31 之间追加;根 CLAUDE.md 的验收期规则加上 `configs/holidays.csv`(它不在协议清单的钉值里,提前改验收报告看不出来)。
+- TODO 勾掉已完成的日历项并更新日期;README 第 62 行试验数 60 → 61;仓单因子卡片的代码路径改为 `factor_library/warehouse_receipts.py`;`.gitignore` 的 `results/`、`.venv/` 去掉斜杠(带斜杠不匹配 worktree 里的软链接);大商所文档写明 CDP 代理的来源(eze-is/web-access,MIT)、启动步骤与 `n_symbols` 14/22 的判别。
+- 三处过时的 docstring 路径(`execution/plan.py`、`research/cta_research/__init__.py`、`factor_mining/candidates/__init__.py`)改正。
+- 报告 v0.6 的样本外重算范围扩大到 `docs/research/non_pv_factor_card.md`、`msf_demo.md`、`portfolio_diagnostics.md`;`candidate_eval` 的 OUT-OF-SAMPLE 汇总行默认从 2022-01-04 起、同样漏 1 月,默认值不改(旧试验要能复现),写进 factor_mining 的 CLAUDE.md。
+- 审计未采纳的两条:报告 v0.5 里的旧路径按 27.5 不改写;试验 61 的回放步骤已分散写在预注册 8.1、`research/cta_research/CLAUDE.md` 与根 CLAUDE.md,不另写。仓库是否加许可证文件由用户决定。
+- 试验计数不变,仍为 **61**。

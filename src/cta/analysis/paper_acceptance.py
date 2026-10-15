@@ -1,13 +1,17 @@
-"""纸面交易验收(只读;设计日志十八):数据完整率、成交率、权益对账、失败与漂移、共同日期、故障演练证据、champion/challenger 配对差。
+"""纸面交易验收(只读;设计日志十八):数据完整率、成交率、权益对账、持仓对账、滑点校准、失败与漂移、共同日期、故障演练证据、champion/challenger 配对差。
 
-只读约定:本模块只读取 paper*/ 目录,任何输出都写到调用方指定的输出目录;不修改账本、不新增账本、不选赢家。
+只读约定:本模块只读取 paper*/ 目录(以及 git 历史、交易所行情文件),任何输出都写到调用方指定的输出目录;不修改账本、不新增账本、不选赢家。
 权益对账按账本真实语义:当日权益变化 = 当日成交产生的 realized_pnl + 当日持仓盯市盈亏 − 当日手续费(滑点已在成交价里,不再扣)。
+持仓对账(18.2 第 4 项):前一日日志持仓 + 当日成交腿 = 当日日志持仓 = 前一日订单目标(各腿成交的前提下);最新一日再与 state.json、positions.csv 核对。
+滑点校准(18.2 第 3 项,只报告):每条成交腿的交易所开盘价 vs 当日成交均价(成交额 / 成交量 / 乘数),以跳数计。
+失败记录除工作区外还读 git 历史:成功重放会删掉 FAILED.json 并覆盖当日日志,只看工作区会把修复过的失败日数成 0。
 """
 
 from __future__ import annotations
 
 import json
 import re
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -18,6 +22,20 @@ import yaml
 
 from cta.analysis.stats import paired_differences, paired_summary
 from cta.data.exchanges.calendar import load_holidays
+from cta.instruments.specs import InstrumentTable, load_instruments
+
+# 能改变五本账订单、成交与权益的文件;其余提交(文档、研究代码、纸面数据本身)不会。各账本的配置文件另从协议清单 books.*.config 取。
+BOOK_CODE_PATHS = [
+    "src/cta",
+    "scripts/paper_daily.sh",
+    "requirements.txt",
+    "requirements-dev.txt",
+    "configs/instruments.yaml",
+    "configs/holidays.csv",
+]
+# 交易所行情 turnover 的单位:上期所、能源中心为万元,大商所、郑商所为元(2026-09-23 → 10-15 逐日核对:
+# turnover/(volume×乘数) 换算后与结算价之比的中位数都在 1 ± 0.01 内)。
+TURNOVER_UNIT = {"SHFE": 1e4, "INE": 1e4, "DCE": 1.0, "CZCE": 1.0}
 
 EQUITY_COLS = [
     "equity",
@@ -55,6 +73,7 @@ class AcceptanceResult:
     status: str  # PRELIMINARY | FINAL
     asof: pd.Timestamp
     reconciliation_ok: bool
+    positions_ok: bool
     completeness_ok: bool
     undeclared_drift: int
     drills_status: str
@@ -329,8 +348,17 @@ def failures(book: Book, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame
     return pd.DataFrame(rows, columns=["book", "date", "stage", "error", "source"])
 
 
-def drift(book: Book, start: pd.Timestamp, end: pd.Timestamp, protocol: dict[str, Any]) -> pd.DataFrame:
-    """相邻订单快照之间的摘要变化(含验收期首日与其前一次快照的比较),按字段分类;与协议清单里声明的切换比对。"""
+def drift(
+    book: Book,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    protocol: dict[str, Any],
+    root: Path | None = None,
+    paths: list[str] | None = None,
+) -> pd.DataFrame:
+    """相邻订单快照之间的摘要变化(含验收期首日与其前一次快照的比较),按字段分类;与协议清单里声明的切换比对。
+    git_sha 每个纸面提交都会变,所以给了 root 时先用 git 看两个版本之间账本运行路径(`paths`)有没有改动:
+    没有 → 记为"仅非账本路径的提交",算已声明;有 → 要么在清单里(同日或 from → to),要么列出改动文件、算未声明。"""
     s = book.snapshots
     rows: list[dict[str, Any]] = []
     if s.empty:
@@ -338,6 +366,7 @@ def drift(book: Book, start: pd.Timestamp, end: pd.Timestamp, protocol: dict[str
             rows, columns=["book", "date", "field", "old", "new", "category", "declared", "note"]
         )
     declared = protocol.get("declared_transitions", []) or []
+    paths = paths if paths is not None else book_code_paths(protocol)
     before = s[s.index < start]
     window = s[(s.index >= start) & (s.index <= end)]
     seq = pd.concat([before.tail(1), window]) if len(before) else window
@@ -347,24 +376,37 @@ def drift(book: Book, start: pd.Timestamp, end: pd.Timestamp, protocol: dict[str
         if prev is not None and pd.Timestamp(str(d)) >= start:
             for f in fields:
                 if str(row[f]) != str(prev[f]):
-                    dec = [
-                        t
-                        for t in declared
-                        if pd.Timestamp(t.get("effective")) == pd.Timestamp(str(d))
-                        and f in (t.get("fields") or [])
-                    ]
+                    old, new = str(prev[f]), str(row[f])
+                    dec = [t for t in declared if _transition_matches(t, pd.Timestamp(str(d)), f, old, new)]
+                    is_dec = bool(dec) or f == "secondary_sha"
+                    note = (
+                        str(dec[0].get("note", ""))
+                        if dec
+                        else ("交易所数据每日增量" if f == "secondary_sha" else "未在协议清单中声明")
+                    )
+                    if f == "git_sha" and root is not None:
+                        files = code_change(root, old, new, paths)
+                        if files is None:
+                            note += ";无法用 git 判定改动范围(非 git 仓库或版本不在仓库)"
+                        elif not files:
+                            is_dec = True
+                            note = (
+                                "仅非账本路径的提交(文档、研究代码或纸面数据):src/cta、每日脚本、依赖、"
+                                "五本账配置、参数表、假期表无改动" + (";清单声明:" + note if dec else "")
+                            )
+                        else:
+                            shown = ", ".join(files[:4]) + ("…" if len(files) > 4 else "")
+                            note += f";账本路径改动 {len(files)} 个文件:{shown}"
                     rows.append(
                         {
                             "book": book.name,
                             "date": pd.Timestamp(str(d)),
                             "field": f,
-                            "old": str(prev[f]),
-                            "new": str(row[f]),
+                            "old": old,
+                            "new": new,
                             "category": DRIFT_CATEGORY[f],
-                            "declared": bool(dec) or f == "secondary_sha",
-                            "note": dec[0].get("note", "")
-                            if dec
-                            else ("交易所数据每日增量" if f == "secondary_sha" else "未在协议清单中声明"),
+                            "declared": is_dec,
+                            "note": note,
                         }
                     )
         prev = row
@@ -408,6 +450,411 @@ def common_range(books: list[Book]) -> dict[str, Any]:
     if idx is None or len(idx) == 0:
         return {"start": None, "end": None, "n_common_days": 0}
     return {"start": str(idx.min().date()), "end": str(idx.max().date()), "n_common_days": int(len(idx))}
+
+
+# ---------- git(只读)与账本运行路径 ----------
+def _git(root: Path, *args: str) -> str | None:
+    """只读 git 调用;没有 git、不是仓库或对象不存在时返回 None,调用方按"无法判定"处理。"""
+    try:
+        return subprocess.run(
+            ["git", "-C", str(root), *args], capture_output=True, text=True, check=True
+        ).stdout
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
+def _is_repo_root(root: Path) -> bool:
+    """root 本身就是 git 仓库的顶层目录(避免 tmp 目录落在别的仓库里时读错仓库)。"""
+    out = _git(root, "rev-parse", "--show-toplevel")
+    if out is None:
+        return False
+    try:
+        return Path(out.strip()).resolve() == Path(root).resolve()
+    except OSError:
+        return False
+
+
+def book_code_paths(protocol: dict[str, Any]) -> list[str]:
+    """能改变五本账订单/成交/权益的文件:BOOK_CODE_PATHS 加协议清单里各账本的配置文件。"""
+    cfgs = sorted(
+        {
+            str(v["config"])
+            for v in (protocol.get("books") or {}).values()
+            if isinstance(v, dict) and v.get("config")
+        }
+    )
+    return BOOK_CODE_PATHS + cfgs
+
+
+def code_change(root: Path, old_sha: str, new_sha: str, paths: list[str]) -> list[str] | None:
+    """两个代码版本之间账本运行路径上改动的文件(不含 .md);无法判定(非仓库、版本不在仓库)→ None。"""
+    if not old_sha or not new_sha or not _is_repo_root(root):
+        return None
+    out = _git(root, "diff", "--name-only", old_sha, new_sha, "--", *paths)
+    if out is None:
+        return None
+    return [f for f in out.split() if not f.endswith(".md")]
+
+
+def _sha_eq(a: str, b: str) -> bool:
+    a, b = str(a), str(b)
+    return bool(a) and bool(b) and (a.startswith(b) or b.startswith(a))
+
+
+def _transition_matches(t: dict[str, Any], d: pd.Timestamp, f: str, old: str, new: str) -> bool:
+    """协议清单的一条声明:同日同字段(effective + fields),或 git_sha 的 from → to(短 sha 前缀即可)。"""
+    if f not in (t.get("fields") or []):
+        return False
+    if t.get("effective") and pd.Timestamp(t["effective"]) == d:
+        return True
+    if f == "git_sha" and t.get("from") and t.get("to"):
+        return _sha_eq(old, str(t["from"])) and _sha_eq(new, str(t["to"]))
+    return False
+
+
+FAIL_COLS = ["book", "date", "stage", "error", "source"]
+
+
+def historical_failures(
+    root: Path, book_dirs: dict[str, str], start: pd.Timestamp, end: pd.Timestamp
+) -> pd.DataFrame:
+    """从 git 历史读出曾提交过的 FAILED.json(每日脚本把失败日连同 FAILED.json 一起提交;成功重放后 runner 删掉它并覆盖当日日志)。
+    路径按协议清单的 dir 或旧目录名(= 账本标签,2026-10-06 之前五本账在仓库根目录)映射到标签。非 git 仓库 → 空表。"""
+    if not _is_repo_root(root):
+        return pd.DataFrame(columns=FAIL_COLS)
+    rows: list[dict[str, Any]] = []
+    for sha in (_git(root, "log", "--diff-filter=A", "--format=%H", "--", "*FAILED.json") or "").split():
+        names = _git(root, "show", "--name-only", "--format=", "--diff-filter=A", sha) or ""
+        for p in names.split():
+            if not p.endswith("FAILED.json"):
+                continue
+            parent = Path(p).parent.as_posix()
+            label = next((k for k, dd in book_dirs.items() if parent in (str(dd).rstrip("/"), k)), None)
+            if label is None:
+                continue
+            try:
+                j = json.loads(_git(root, "show", f"{sha}:{p}") or "")
+            except json.JSONDecodeError:
+                j = {}
+            d = pd.Timestamp(str(j.get("date") or "1900-01-01"))
+            if pd.isna(d) or d < start or d > end:
+                continue
+            rows.append(
+                {
+                    "book": label,
+                    "date": d,
+                    "stage": j.get("stage", "?"),
+                    "error": str(j.get("error", ""))[:200],
+                    "source": f"git {sha[:7]}",
+                }
+            )
+    return pd.DataFrame(rows, columns=FAIL_COLS)
+
+
+def merge_failures(book: Book, current: pd.DataFrame, historical: pd.DataFrame) -> pd.DataFrame:
+    """工作区的失败记录(未修复)与 git 历史里的(当日现已有权益行且无 FAILED.json → 已修复)合并,同一账本同一日只留一条,未修复优先。"""
+    cur = current.copy()
+    cur["status"] = "未修复"
+    hist = historical.copy()
+    have = pd.DatetimeIndex(book.equity.index) if len(book.equity) else pd.DatetimeIndex([])
+    failed_date = pd.Timestamp(str(book.failed.get("date"))) if book.failed else None
+    hist["status"] = (
+        [
+            "已修复(重放补齐)" if (d in have and d != failed_date) else "未修复"
+            for d in pd.DatetimeIndex(hist["date"])
+        ]
+        if len(hist)
+        else []
+    )
+    parts = [x for x in (cur, hist) if len(x)]
+    if not parts:
+        return pd.DataFrame(columns=[*FAIL_COLS, "status"])
+    both = pd.concat(parts, ignore_index=True)
+    both["_k"] = (both["status"] != "未修复").astype(int)
+    both = both.sort_values(["book", "date", "_k"]).drop_duplicates(["book", "date"]).drop(columns="_k")
+    return both.reset_index(drop=True)
+
+
+# ---------- 持仓对账(18.2 第 4 项) ----------
+def _is_date(s: str) -> bool:
+    try:
+        return not pd.isna(pd.Timestamp(s))
+    except (ValueError, TypeError):
+        return False
+
+
+def _log_positions(j: dict[str, Any]) -> dict[str, tuple[str, float]] | None:
+    """日志里的持仓 {symbol: [contract, lots]} → {symbol: (contract, lots)};旧格式无该字段 → None。"""
+    p = j.get("positions")
+    if not isinstance(p, dict):
+        return None
+    out: dict[str, tuple[str, float]] = {}
+    for s, v in p.items():
+        if isinstance(v, (list, tuple)) and len(v) >= 2:
+            out[str(s)] = (str(v[0]), float(v[1]))
+    return out
+
+
+def _fmt_pos(p: tuple[str, float] | None) -> str:
+    return f"{p[0]}/{p[1]:g}" if p else "无"
+
+
+def _pos_diff(expected: dict[str, tuple[str, float]], actual: dict[str, tuple[str, float]]) -> list[str]:
+    out = []
+    for s in sorted(set(expected) | set(actual)):
+        e, a = expected.get(s), actual.get(s)
+        if e is None or a is None or e[0] != a[0] or abs(e[1] - a[1]) > 1e-9:
+            out.append(f"{s}: 期望 {_fmt_pos(e)} 实际 {_fmt_pos(a)}")
+    return out
+
+
+def _read_orders(book: Book, day: str) -> pd.DataFrame | None:
+    p = book.root / "orders" / day / "orders.csv"
+    if not p.exists():
+        return None
+    try:
+        return pd.read_csv(p)
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, OSError):
+        return None
+
+
+POS_COLS = ["book", "date", "n_positions", "fills_ok", "target_ok", "detail", "ok"]
+
+
+def reconcile_positions(book: Book, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
+    """逐日:前一日日志持仓 + 当日成交腿(filled)= 当日日志持仓;当日持仓 = 前一日订单的 target(该品种各腿都成交)或 held(有腿未成交)。
+    日志在每日步成功后写,失败日被重放后同样有;没有前一日日志的日子无法核对,不计入。"""
+    days = sorted(k for k in book.logs if _is_date(k))
+    rows: list[dict[str, Any]] = []
+    f = book.fills
+    has_fills = not f.empty and "date" in f.columns
+    for i, day in enumerate(days):
+        d = pd.Timestamp(day)
+        if d < start or d > end or i == 0:
+            continue
+        cur = _log_positions(book.logs[day])
+        prev = _log_positions(book.logs[days[i - 1]])
+        if cur is None or prev is None:
+            continue
+        legs = (
+            f[f["date"] == d] if has_fills else pd.DataFrame(columns=["symbol", "contract", "lots", "status"])
+        )
+        acc: dict[tuple[str, str], float] = {(s, c): lots for s, (c, lots) in prev.items()}
+        for _, r in legs[legs["status"] == "filled"].iterrows():
+            key = (str(r["symbol"]), str(r["contract"]))
+            acc[key] = acc.get(key, 0.0) + float(r["lots"])
+        exp_fills: dict[str, tuple[str, float]] = {}
+        dup: list[str] = []
+        for (s, c), lots in acc.items():
+            if abs(lots) <= 1e-9:
+                continue
+            if s in exp_fills:
+                dup.append(f"{s}: 两个合约同时有仓 {exp_fills[s][0]}/{c}")
+            exp_fills[s] = (c, lots)
+        detail = dup + _pos_diff(exp_fills, cur)
+        fills_ok = not detail
+        target_ok: bool | None = None
+        od = _read_orders(book, days[i - 1])
+        need = {"symbol", "target_contract", "target_lots", "held_contract", "held_lots"}
+        if od is not None and need <= set(od.columns):
+            exp_t: dict[str, tuple[str, float]] = {}
+            for _, o in od.iterrows():
+                s = str(o["symbol"])
+                sl = legs[legs["symbol"] == s] if len(legs) else legs
+                all_filled = bool((sl["status"] == "filled").all()) if len(sl) else True
+                c, lots = (
+                    (o["target_contract"], o["target_lots"])
+                    if all_filled
+                    else (o["held_contract"], o["held_lots"])
+                )
+                lots_f = float(lots) if pd.notna(lots) else 0.0
+                if abs(lots_f) > 1e-9 and isinstance(c, str) and c:
+                    exp_t[s] = (c, lots_f)
+            tdiff = _pos_diff(exp_t, cur)
+            target_ok = not tdiff
+            detail += [f"目标 {x}" for x in tdiff]
+        else:
+            detail.append("无前一日订单文件,目标未核")
+        rows.append(
+            {
+                "book": book.name,
+                "date": d,
+                "n_positions": len(cur),
+                "fills_ok": fills_ok,
+                "target_ok": target_ok,
+                "detail": "; ".join(detail),
+                "ok": bool(fills_ok and target_ok is not False),
+            }
+        )
+    return pd.DataFrame(rows, columns=POS_COLS)
+
+
+def weekly_positions(daily: pd.DataFrame) -> pd.DataFrame:
+    if daily.empty:
+        return pd.DataFrame(columns=["book", "week", "n_days", "n_bad", "ok"])
+    d = daily.copy()
+    d["week"] = pd.DatetimeIndex(d["date"]).strftime("%G-W%V")
+    g = d.groupby(["book", "week"])
+    return pd.DataFrame(
+        {"n_days": g.size(), "n_bad": g["ok"].apply(lambda s: int((~s).sum())), "ok": g["ok"].all()}
+    ).reset_index()
+
+
+def state_consistency(book: Book) -> dict[str, Any]:
+    """最新一日:state.json 持仓 = 当日日志持仓 = positions.csv(三者都只存最新一天)。"""
+    sp = book.state.get("positions") or {}
+    s_pos = {
+        str(k): (str(v.get("contract")), float(v.get("lots", 0.0)))
+        for k, v in sp.items()
+        if isinstance(v, dict) and abs(float(v.get("lots", 0.0))) > 1e-9
+    }
+    last = str(book.state.get("last_settled") or "")
+    log_pos = _log_positions(book.logs.get(last, {})) if last else None
+    csv_pos: dict[str, tuple[str, float]] | None = None
+    p = book.root / "positions.csv"
+    if p.exists():
+        try:
+            df = pd.read_csv(p)
+            csv_pos = {
+                str(sym): (str(c), float(lots))
+                for sym, c, lots in zip(df["symbol"], df["contract"], df["lots"], strict=True)
+            }
+        except (pd.errors.EmptyDataError, pd.errors.ParserError, OSError, KeyError, ValueError):
+            csv_pos = None
+    d_log = _pos_diff(s_pos, log_pos) if log_pos is not None else ["无当日日志持仓"]
+    d_csv = _pos_diff(s_pos, csv_pos) if csv_pos is not None else []
+    return {
+        "book": book.name,
+        "date": last,
+        "n_positions": len(s_pos),
+        "state_vs_log": not d_log,
+        "state_vs_csv": (not d_csv) if csv_pos is not None else None,
+        "detail": "; ".join(d_log + [f"positions.csv {x}" for x in d_csv]),
+        "ok": not d_log and not d_csv,
+    }
+
+
+# ---------- 滑点校准(18.2 第 3 项,只报告) ----------
+SLIP_LEG_COLS = [
+    "book", "date", "symbol", "contract", "leg", "lots", "side", "price", "open", "vwap", "tick",
+    "open_vs_vwap_ticks", "open_vs_vwap_bp", "fill_vs_open_ticks", "fill_vs_vwap_ticks",
+]  # fmt: skip
+SLIP_SUM_COLS = [
+    "book", "symbol", "n", "n_missing", "open_vwap_ticks_mean", "open_vwap_ticks_median",
+    "open_vwap_ticks_p10", "open_vwap_ticks_p90", "open_vwap_bp_mean_abs", "fill_open_ticks_mean",
+    "fill_vwap_ticks_mean",
+]  # fmt: skip
+
+
+def _quotes_day(
+    quotes_root: Path,
+    exchange: str,
+    d: pd.Timestamp,
+    cache: dict[tuple[str, pd.Timestamp], pd.DataFrame | None],
+) -> pd.DataFrame | None:
+    key = (exchange, d)
+    if key not in cache:
+        p = quotes_root / exchange / "quotes" / f"{d.year}" / f"{d.strftime('%Y%m%d')}.parquet"
+        df: pd.DataFrame | None = None
+        if p.exists():
+            try:
+                q = pd.read_parquet(p)
+                df = q.set_index("contract") if "contract" in q.columns else None
+            except (OSError, ValueError, KeyError):
+                df = None
+        cache[key] = df
+    return cache[key]
+
+
+def slippage_calibration(
+    book: Book, start: pd.Timestamp, end: pd.Timestamp, quotes_root: Path, specs: InstrumentTable
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """每条成交腿:交易所开盘价 vs 当日成交均价 VWAP = turnover × 单位 / (volume × 乘数),以跳数计(open_vs_vwap_ticks);
+    成交价 − 开盘价(账本假设 ±1 跳);side × (成交价 − VWAP),正 = 比当日均价差。交易所不公布首 bar 均价,全日均价是 18.2 写定的口径。
+    返回 (逐腿, 按账本×品种汇总);行情文件缺失的腿记 NaN 并计入 n_missing。"""
+    f = book.fills
+    if f.empty or "date" not in f.columns:
+        return pd.DataFrame(columns=SLIP_LEG_COLS), pd.DataFrame(columns=SLIP_SUM_COLS)
+    w = f[(f["date"] >= start) & (f["date"] <= end) & (f["status"] == "filled")]
+    cache: dict[tuple[str, pd.Timestamp], pd.DataFrame | None] = {}
+    rows: list[dict[str, Any]] = []
+    for _, r in w.iterrows():
+        sym = str(r["symbol"])
+        if sym not in specs.specs:
+            continue
+        sp = specs[sym]
+        d = pd.Timestamp(r["date"])
+        q = _quotes_day(quotes_root, sp.exchange, d, cache)
+        open_ = vwap = float("nan")
+        contract = str(r["contract"])
+        if q is not None and contract in q.index:
+            row = q.loc[contract]
+            if isinstance(row, pd.DataFrame):
+                row = row.iloc[0]
+            open_ = float(row.get("open", np.nan))
+            vol, to = float(row.get("volume", np.nan)), float(row.get("turnover", np.nan))
+            if np.isfinite(vol) and vol > 0 and np.isfinite(to):
+                vwap = to * TURNOVER_UNIT.get(sp.exchange, 1.0) / (vol * sp.multiplier)
+        lots = float(r["lots"])
+        side = 1.0 if lots > 0 else -1.0
+        price = float(r["price"]) if "price" in r.index and pd.notna(r["price"]) else float("nan")
+        rows.append(
+            {
+                "book": book.name,
+                "date": d,
+                "symbol": sym,
+                "contract": contract,
+                "leg": str(r.get("leg", "")),
+                "lots": lots,
+                "side": side,
+                "price": price,
+                "open": open_,
+                "vwap": vwap,
+                "tick": sp.tick,
+                "open_vs_vwap_ticks": (open_ - vwap) / sp.tick,
+                "open_vs_vwap_bp": (open_ - vwap) / vwap * 1e4,
+                "fill_vs_open_ticks": (price - open_) / sp.tick,
+                "fill_vs_vwap_ticks": side * (price - vwap) / sp.tick,
+            }
+        )
+    legs = pd.DataFrame(rows, columns=SLIP_LEG_COLS)
+    if legs.empty:
+        return legs, pd.DataFrame(columns=SLIP_SUM_COLS)
+    g = legs.groupby(["book", "symbol"])
+    summ = pd.DataFrame(
+        {
+            "n": g.size(),
+            "n_missing": g["vwap"].apply(lambda s: int(s.isna().sum())),
+            "open_vwap_ticks_mean": g["open_vs_vwap_ticks"].mean(),
+            "open_vwap_ticks_median": g["open_vs_vwap_ticks"].median(),
+            "open_vwap_ticks_p10": g["open_vs_vwap_ticks"].quantile(0.1),
+            "open_vwap_ticks_p90": g["open_vs_vwap_ticks"].quantile(0.9),
+            "open_vwap_bp_mean_abs": g["open_vs_vwap_bp"].apply(lambda s: float(s.abs().mean())),
+            "fill_open_ticks_mean": g["fill_vs_open_ticks"].mean(),
+            "fill_vwap_ticks_mean": g["fill_vs_vwap_ticks"].mean(),
+        }
+    ).reset_index()
+    return legs, summ[SLIP_SUM_COLS]
+
+
+def slippage_by_book(legs: pd.DataFrame) -> pd.DataFrame:
+    """逐腿表按账本汇总(报告正文用;按品种的明细在 CSV)。"""
+    if legs.empty:
+        return pd.DataFrame(columns=SLIP_SUM_COLS).drop(columns="symbol")
+    g = legs.groupby("book")
+    return pd.DataFrame(
+        {
+            "n": g.size(),
+            "n_missing": g["vwap"].apply(lambda s: int(s.isna().sum())),
+            "open_vwap_ticks_mean": g["open_vs_vwap_ticks"].mean(),
+            "open_vwap_ticks_median": g["open_vs_vwap_ticks"].median(),
+            "open_vwap_ticks_p10": g["open_vs_vwap_ticks"].quantile(0.1),
+            "open_vwap_ticks_p90": g["open_vs_vwap_ticks"].quantile(0.9),
+            "open_vwap_bp_mean_abs": g["open_vs_vwap_bp"].apply(lambda s: float(s.abs().mean())),
+            "fill_open_ticks_mean": g["fill_vs_open_ticks"].mean(),
+            "fill_vwap_ticks_mean": g["fill_vs_vwap_ticks"].mean(),
+        }
+    ).reset_index()
 
 
 DRILL_REQUIRED = ("date", "book", "injected", "detected", "recovered", "outcome")
@@ -484,11 +931,16 @@ def run_acceptance(
     seed: int = 20260923,
     drills_dir: Path | None = None,
     holidays: pd.DatetimeIndex | None = None,
+    specs: InstrumentTable | None = None,
+    quotes_root: Path | None = None,
 ) -> AcceptanceResult:
     root, out_dir, report_path = Path(root), Path(out_dir), Path(report_path)
     protocol = load_protocol(protocol_path)
     champ_name = str(protocol["champion"])
     book_dirs = {str(k): str(v.get("dir", k)) for k, v in (protocol.get("books") or {}).items()}
+    specs = specs if specs is not None else load_instruments()
+    quotes_root = quotes_root if quotes_root is not None else root / "data" / "exchanges"
+    code_paths = book_code_paths(protocol)
 
     def _load(name: str, role: str) -> Book:
         d = root / book_dirs.get(name, name)
@@ -504,15 +956,24 @@ def run_acceptance(
     status = "PRELIMINARY" if asof_ts < end else "FINAL"
     days = expected_days(start, asof_ts, holidays)
     comp = pd.DataFrame([completeness(b, days) for b in books])
+    hist_fail = historical_failures(root, book_dirs, start, asof_ts)
     fill_rows, blocked_parts, rec_parts, fail_parts, drift_parts = [], [], [], [], []
+    pos_parts, state_rows, slip_leg_parts, slip_parts = [], [], [], []
     for b in books:
         fs, bl = fill_stats(b, start, asof_ts)
         fill_rows.append(fs)
         if len(bl):
             blocked_parts.append(bl)
         rec_parts.append(reconcile_book(b, start, asof_ts))
-        fail_parts.append(failures(b, start, asof_ts))
-        drift_parts.append(drift(b, start, asof_ts, protocol))
+        pos_parts.append(reconcile_positions(b, start, asof_ts))
+        state_rows.append(state_consistency(b))
+        fail_parts.append(
+            merge_failures(b, failures(b, start, asof_ts), hist_fail[hist_fail["book"] == b.name])
+        )
+        drift_parts.append(drift(b, start, asof_ts, protocol, root=root, paths=code_paths))
+        legs, summ = slippage_calibration(b, start, asof_ts, quotes_root, specs)
+        slip_leg_parts.append(legs)
+        slip_parts.append(summ)
     fills_df = pd.DataFrame(fill_rows)
     blocked_df = (
         pd.concat(blocked_parts, ignore_index=True)
@@ -521,8 +982,14 @@ def run_acceptance(
     )
     rec_df = pd.concat(rec_parts, ignore_index=True) if rec_parts else pd.DataFrame()
     weekly = weekly_reconciliation(rec_df)
+    pos_df = pd.concat(pos_parts, ignore_index=True)
+    pos_weekly = weekly_positions(pos_df)
+    state_df = pd.DataFrame(state_rows)
     fail_df = pd.concat(fail_parts, ignore_index=True)
     drift_df = pd.concat(drift_parts, ignore_index=True)
+    slip_legs = pd.concat(slip_leg_parts, ignore_index=True)
+    slip_df = pd.concat(slip_parts, ignore_index=True)
+    slip_book = slippage_by_book(slip_legs)
     cr = common_range(books)
     drills_status, drills = drill_evidence(drills_dir if drills_dir is not None else root / "docs" / "drills")
     champ = books[0]
@@ -552,13 +1019,31 @@ def run_acceptance(
     blocked_df.to_csv(out_dir / "blocked.csv", index=False)
     rec_df.to_csv(out_dir / "reconciliation.csv", index=False)
     weekly.to_csv(out_dir / "reconciliation_weekly.csv", index=False)
+    pos_df.to_csv(out_dir / "positions_reconciliation.csv", index=False)
+    pos_weekly.to_csv(out_dir / "positions_reconciliation_weekly.csv", index=False)
+    state_df.to_csv(out_dir / "state_consistency.csv", index=False)
     fail_df.to_csv(out_dir / "failures.csv", index=False)
     drift_df.to_csv(out_dir / "config_drift.csv", index=False)
+    slip_legs.to_csv(out_dir / "slippage_legs.csv", index=False)
+    slip_df.to_csv(out_dir / "slippage_by_symbol.csv", index=False)
+    slip_book.to_csv(out_dir / "slippage_by_book.csv", index=False)
     paired_df.to_csv(out_dir / "paired_differences.csv", index=False)
     stop_df.to_csv(out_dir / "stop_condition.csv", index=False)
     rec_ok = bool(rec_df["ok"].all()) if len(rec_df) else True
+    # 持仓:有预期交易日却一天都核不了(没有带持仓的日志)不算通过;最新一日 state/positions.csv 也要一致
+    pos_ok = bool(
+        (len(pos_df) > 0 and pos_df["ok"].all() and state_df["ok"].all())
+        if len(days)
+        else state_df["ok"].all()
+    )
     comp_ok = bool((comp["rate"].fillna(1.0) >= 1.0).all()) if len(comp) else False  # 尚无预期交易日 → 无缺失
     undeclared = int((~drift_df["declared"]).sum()) if len(drift_df) else 0
+
+    def _fail_cell(b: str) -> str:
+        fb = fail_df[fail_df["book"] == b]
+        n, k = len(fb), int((fb["status"] != "未修复").sum()) if len(fb) else 0
+        return f"{n}(已修复 {k})" if n else "0"
+
     summary = pd.DataFrame(
         {
             "book": comp["book"],
@@ -568,7 +1053,12 @@ def run_acceptance(
             "reconciled": [
                 bool(rec_df[rec_df["book"] == b]["ok"].all()) if len(rec_df) else True for b in comp["book"]
             ],
-            "failures": [int((fail_df["book"] == b).sum()) for b in comp["book"]],
+            "positions_reconciled": [
+                bool(len(pos_df[pos_df["book"] == b]) and pos_df[pos_df["book"] == b]["ok"].all())
+                and bool(state_df[state_df["book"] == b]["ok"].all())
+                for b in comp["book"]
+            ],
+            "failures": [_fail_cell(b) for b in comp["book"]],
             "undeclared_drift": [
                 int(((drift_df["book"] == b) & (~drift_df["declared"])).sum()) if len(drift_df) else 0
                 for b in comp["book"]
@@ -588,8 +1078,13 @@ def run_acceptance(
             blocked_df,
             rec_df,
             weekly,
+            pos_df,
+            pos_weekly,
+            state_df,
             fail_df,
             drift_df,
+            slip_book,
+            slip_df,
             cr,
             drills_status,
             drills,
@@ -605,7 +1100,9 @@ def run_acceptance(
         ),
         encoding="utf-8",
     )
-    return AcceptanceResult(status, asof_ts, rec_ok, comp_ok, undeclared, drills_status, report_path, summary)
+    return AcceptanceResult(
+        status, asof_ts, rec_ok, pos_ok, comp_ok, undeclared, drills_status, report_path, summary
+    )
 
 
 def _rate(x: Any) -> str:
@@ -627,8 +1124,13 @@ def _render_report(
     blocked_df: pd.DataFrame,
     rec_df: pd.DataFrame,
     weekly: pd.DataFrame,
+    pos_df: pd.DataFrame,
+    pos_weekly: pd.DataFrame,
+    state_df: pd.DataFrame,
     fail_df: pd.DataFrame,
     drift_df: pd.DataFrame,
+    slip_book: pd.DataFrame,
+    slip_df: pd.DataFrame,
     cr: dict[str, Any],
     drills_status: str,
     drills: list[dict[str, Any]],
@@ -659,16 +1161,21 @@ def _render_report(
     lines += [
         "## 0. 摘要",
         "",
-        "| 账本 | 角色 | 有数据/预期交易日 | 成交率 | 逐日对账 | 失败记录 | 未声明漂移 |",
-        "|---|---|---|---|---|---|---|",
+        "| 账本 | 角色 | 有数据/预期交易日 | 成交率 | 权益对账 | 持仓对账 | 失败记录(已修复) | 未声明漂移 |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for _, c in comp.iterrows():
         fr = fills_df[fills_df["book"] == c["book"]]["fill_rate"]
         rec_ok = bool(rec_df[rec_df["book"] == c["book"]]["ok"].all()) if len(rec_df) else True
-        nf = int((fail_df["book"] == c["book"]).sum())
+        pb = pos_df[pos_df["book"] == c["book"]]
+        sb = state_df[state_df["book"] == c["book"]]
+        pos_ok = bool(len(pb) and pb["ok"].all() and sb["ok"].all())
+        pos_cell = ("一致" if pos_ok else "**不一致**") if len(pb) else "**无法核对**"
+        fb = fail_df[fail_df["book"] == c["book"]]
+        nf, nk = len(fb), int((fb["status"] != "未修复").sum()) if len(fb) else 0
         nd = int(((drift_df["book"] == c["book"]) & (~drift_df["declared"])).sum()) if len(drift_df) else 0
         lines.append(
-            f"| {c['book']} | {c['role']} | {c['present']}/{c['expected']} | {_rate(fr.iloc[0]) if len(fr) else 'n/a'} | {'一致' if rec_ok else '**不一致**'} | {nf} | {nd} |"
+            f"| {c['book']} | {c['role']} | {c['present']}/{c['expected']} | {_rate(fr.iloc[0]) if len(fr) else 'n/a'} | {'一致' if rec_ok else '**不一致**'} | {pos_cell} | {nf}({nk}) | {nd} |"
         )
     if len(days) == 0:
         lines += [
@@ -734,18 +1241,67 @@ def _render_report(
                 )
     else:
         lines.append("(验收期内无权益行)")
-    lines += ["", "## 4. 失败记录(FAILED.json 与日志)", ""]
+    lines += [
+        "",
+        "## 4. 持仓对账(18.2 第 4 项:前一日持仓 + 当日成交腿 = 当日持仓 = 前一日订单目标;有腿未成交的品种保持前一日持仓)",
+        "",
+    ]
+    if len(pos_df):
+        bad_p = pos_df[~pos_df["ok"]]
+        lines += [
+            f"逐日检查 {len(pos_df)} 条(账本日志 `log/<日>.json` 的持仓、`fills/<日>.csv`、`orders/<前一日>/orders.csv`),不一致 {len(bad_p)} 条。",
+            "",
+            "| 账本 | 周 | 天数 | 不一致 | 通过 |",
+            "|---|---|---|---|---|",
+        ]
+        for _, w in pos_weekly.iterrows():
+            lines.append(
+                f"| {w['book']} | {w['week']} | {w['n_days']} | {w['n_bad']} | {'是' if w['ok'] else '**否**'} |"
+            )
+        if len(bad_p):
+            lines += [
+                "",
+                "**不一致明细**:",
+                "",
+                "| 账本 | 日期 | 成交累计 | 订单目标 | 说明 |",
+                "|---|---|---|---|---|",
+            ]
+            for _, r in bad_p.iterrows():
+                t = r["target_ok"]
+                t_cell = "未核" if t is None or pd.isna(t) else ("是" if bool(t) else "否")
+                lines.append(
+                    f"| {r['book']} | {pd.Timestamp(r['date']).date()} | {'是' if r['fills_ok'] else '否'} | {t_cell} | {str(r['detail']).replace('|', '/')} |"
+                )
+    else:
+        lines.append("(验收期内没有带持仓的日志,无法核对)")
+    lines += ["", "最新一日 `state.json` 持仓 = 当日日志持仓 = `positions.csv`:", ""]
+    lines += ["| 账本 | 日期 | 持仓品种数 | 对日志 | 对 positions.csv | 说明 |", "|---|---|---|---|---|---|"]
+    for _, r in state_df.iterrows():
+        sc = r["state_vs_csv"]
+        csv_cell = "无文件" if sc is None or pd.isna(sc) else ("一致" if bool(sc) else "**不一致**")
+        lines.append(
+            f"| {r['book']} | {r['date']} | {r['n_positions']} | {'一致' if r['state_vs_log'] else '**不一致**'} | {csv_cell} | {str(r['detail']).replace('|', '/')} |"
+        )
+    lines += [
+        "",
+        "## 5. 失败记录(工作区 FAILED.json、日志,以及 git 历史里已被成功重放清除的 FAILED.json)",
+        "",
+    ]
     if len(fail_df):
-        lines += ["| 账本 | 日期 | 阶段 | 错误 | 来源 |", "|---|---|---|---|---|"]
+        lines += ["| 账本 | 日期 | 阶段 | 错误 | 来源 | 状态 |", "|---|---|---|---|---|---|"]
         for _, r in fail_df.iterrows():
             lines.append(
-                f"| {r['book']} | {pd.Timestamp(r['date']).date()} | {r['stage']} | {str(r['error']).replace('|', '/')} | {r['source']} |"
+                f"| {r['book']} | {pd.Timestamp(r['date']).date()} | {r['stage']} | {str(r['error']).replace('|', '/')} | {r['source']} | {r['status']} |"
             )
+        lines += [
+            "",
+            "已修复 = 该日现已有权益行且无 FAILED.json(18.2 第 1 项:FAILED 日在后续运行中修复重放算完整);未修复的失败日同时出现在第 1 节的缺失日期里。",
+        ]
     else:
         lines.append("(无)")
     lines += [
         "",
-        "## 5. 配置 / 参数表 / 代码 / 数据漂移(基于订单快照 config_digest、instruments_digest、git_sha、data_manifest)",
+        "## 6. 配置 / 参数表 / 代码 / 数据漂移(基于订单快照 config_digest、instruments_digest、git_sha、data_manifest)",
         "",
     ]
     if len(drift_df):
@@ -761,11 +1317,12 @@ def _render_report(
         lines.append("(验收期内无快照变化)")
     lines += [
         "",
-        "默认只检测和报告,不阻止每日作业。协议清单声明的切换视为合法;未声明的策略配置/参数表/代码/数据版本变化需要解释。",
+        "默认只检测和报告,不阻止每日作业。协议清单声明的切换视为合法;未声明的策略配置/参数表/代码/数据版本变化需要解释。"
+        "git_sha 每个纸面提交都会变:两个版本之间若 `src/cta`、每日脚本、依赖、五本账配置、参数表、假期表都没改,记为'仅非账本路径的提交',算已声明;改了则须在清单里声明(同日或 from → to),否则列出改动文件。",
         "",
     ]
     lines += [
-        "## 6. 故障恢复演练证据",
+        "## 7. 故障恢复演练证据",
         "",
         f"状态:**{drills_status}**(证据目录 `docs/drills/*.json`,必需字段 {', '.join(DRILL_REQUIRED)};没有合格证据即 PENDING,不凭空判定通过)。",
         "",
@@ -779,7 +1336,38 @@ def _render_report(
                 else ""
             )
         )
-    lines += ["", "## 7. champion / challenger 配对差(预注册 18.3;只报告,不选择)", ""]
+    lines += [
+        "",
+        "## 8. 滑点校准(18.2 第 3 项;只报告,不判定)",
+        "",
+        "每条成交腿:交易所开盘价 − 当日成交均价(成交额 / 成交量 / 乘数;上期所、能源中心成交额单位万元),以跳数计;成交价 − 开盘价是账本假设的 ±1 跳;side × (成交价 − 均价) 正 = 比当日均价差。交易所不公布首 bar 均价,全日均价是预注册写定的口径。按品种的明细在 `slippage_by_symbol.csv`,逐腿在 `slippage_legs.csv`。",
+        "",
+    ]
+    if len(slip_book):
+        lines += [
+            "| 账本 | 腿数 | 缺行情 | 开盘−均价 跳数:均值 / 中位 / p10 / p90 | 开盘−均价 平均|bp| | 成交−开盘 跳数均值 | side×(成交−均价) 跳数均值 |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for _, r in slip_book.iterrows():
+            lines.append(
+                f"| {r['book']} | {int(r['n'])} | {int(r['n_missing'])} | {float(r['open_vwap_ticks_mean']):.2f} / {float(r['open_vwap_ticks_median']):.2f} / {float(r['open_vwap_ticks_p10']):.2f} / {float(r['open_vwap_ticks_p90']):.2f} | {float(r['open_vwap_bp_mean_abs']):.1f} | {float(r['fill_open_ticks_mean']):+.2f} | {float(r['fill_vwap_ticks_mean']):+.2f} |"
+            )
+        champ_slip = slip_df[slip_df["book"] == str(protocol["champion"])]
+        if len(champ_slip):
+            lines += [
+                "",
+                f"champion `{protocol['champion']}` 按品种:",
+                "",
+                "| 品种 | 腿数 | 缺行情 | 开盘−均价 跳数均值 / 中位 | p10 / p90 | 平均|bp| | side×(成交−均价) 跳数均值 |",
+                "|---|---|---|---|---|---|---|",
+            ]
+            for _, r in champ_slip.iterrows():
+                lines.append(
+                    f"| {r['symbol']} | {int(r['n'])} | {int(r['n_missing'])} | {float(r['open_vwap_ticks_mean']):.2f} / {float(r['open_vwap_ticks_median']):.2f} | {float(r['open_vwap_ticks_p10']):.2f} / {float(r['open_vwap_ticks_p90']):.2f} | {float(r['open_vwap_bp_mean_abs']):.1f} | {float(r['fill_vwap_ticks_mean']):+.2f} |"
+                )
+    else:
+        lines.append("(验收期内无成交腿)")
+    lines += ["", "## 9. champion / challenger 配对差(预注册 18.3;只报告,不选择)", ""]
     if len(paired_df) and int(paired_df["n_days"].max()) > 0:
         insufficient = paired_df[~paired_df["sample_sufficient"]]
         if len(insufficient):
@@ -813,10 +1401,10 @@ def _render_report(
         lines.append("(验收期内尚无配对日期,无法计算)")
     lines += [
         "",
-        "## 8. 方法与参数",
+        "## 10. 方法与参数",
         "",
-        f"- 输出目录:`{out_dir}`;协议清单:`{protocol_path}`;随机种子 {seed};bootstrap {n_boot} 次、块长 {block};NW lag {lags};对账容差 1e-4 元。",
-        "- 本报告只读取 paper*/ 目录,不修改任何账本文件;不新增账本;不据结果采用或淘汰版本。",
+        f"- 输出目录:`{out_dir}`;协议清单:`{protocol_path}`;随机种子 {seed};bootstrap {n_boot} 次、块长 {block};NW lag {lags};权益对账容差 1e-4 元,持仓对账手数容差 1e-9。",
+        "- 本报告只读取 paper*/ 目录、git 历史与交易所行情文件,不修改任何账本文件;不新增账本;不据结果采用或淘汰版本。",
         f"- 与回测的比较(18.4)留到验收期结束再做;本阶段共同日期 {cr['n_common_days']} 天。",
         "",
     ]

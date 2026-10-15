@@ -18,3 +18,25 @@ declared_transitions:     # 已说明的切换:同日、同字段的快照变化
   - effective: "2026-09-23"
     fields: [config_digest, git_sha]
     note: "统一执行口径(design_log 17.7):trade_buffer 拆成 exposure_buffer/lot_band、新增 data.settle=official;代码 dd215f5 → f898e7b 及之后"
+  # 下面四条是 2026-10-16 补登记的代码版本切换(设计日志三十一):验收程序先用 git 判断两个版本之间账本运行路径有没有改动,
+  # 没改动的 git_sha 变化(文档、研究代码、纸面数据提交)自动算已声明;改动了的必须在这里有一条(同日 effective,或 from → to)。
+  - effective: "2026-09-28"
+    from: 6ca29ab
+    to: f632778
+    fields: [git_sha]
+    note: "只新增 src/cta/analysis 下三个研究模块(季度自适应、基本面信号、walk-forward),纸面路径不导入(design_log 十九至二十一;五本账不受影响)"
+  - effective: "2026-10-08"
+    from: 214cef1
+    to: 091c7aa
+    fields: [git_sha]
+    note: "仓库整理(五本账移入 paper/,design_log 二十六:迁移前五本账 step 均 already settled、state.json 逐字节相同)、MSF 可选外部因子挂钩(二十五:现有配置输出逐位不变)、另类数据/期权研究管道(当时在 src/cta 下,纸面路径不导入)、paper_daily.sh 路径更新"
+  - effective: "2026-10-09"
+    from: 091c7aa
+    to: 1ca982a
+    fields: [git_sha]
+    note: "Python 3.12 .venv 与依赖固定(design_log 27.1:五本账目标暴露逐位相同、09-30 订单相同)、研究/生产代码分离(27.5:纯移动)、交易所数据源可选 dominant_rule(默认 max_oi 不变,27.3)"
+  - effective: "2026-10-12"
+    from: 1ca982a
+    to: c8d08df
+    fields: [git_sha]
+    note: "按流程阶段分文件夹(design_log 二十九:六个配置 golden 输出逐字节相同、五本账 10-08/10-09 回放逐字节相同)、交易日历默认假期表修复(三十:回放与 golden 逐字节相同,追加 2027 假期前生产行为不变)"

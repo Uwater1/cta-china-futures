@@ -1,6 +1,6 @@
 # 文档索引
 
-2026-10-06 仓库整理过一次(经过见 [design_log.md](design_log.md) 第二十六节),2026-10-07 又把研究代码与生产代码分开(第二十七节),2026-10-12 再按流程阶段分成数据层、因子挖掘、因子库、因子组合、执行层、分析六块(第二十九节;每个阶段文件夹有自己的 CLAUDE.md)。除表中注明的改名与拆分外,**文件名都没改**。此前写成的文字(设计日志一至二十六、各预注册与结果、`report/archive/`)里的旧路径不改写,对照如下。例外:`research/non_pv_factor_card.md` 是现行说明书,账本路径已改为 `paper/v03/` 并注明旧名,脚本路径已改为 `research/scripts/`;`msf_demo.py` 对 `msf_prereg.md` 的引用在 10-06 改成了当时的新路径;`msf_prereg.md` 正文里的旧路径没有改。
+2026-10-06 仓库整理过一次(经过见 [design_log.md](design_log.md) 第二十六节),2026-10-07 又把研究代码与生产代码分开(第二十七节),2026-10-12 再按流程阶段分成数据层、因子挖掘、因子库、因子组合、执行层、分析六块(第二十九节;每个阶段文件夹有自己的 CLAUDE.md)。除表中注明的改名与拆分外,**文件名都没改**。此前写成的文字(设计日志一至二十六、各预注册与结果、`report/archive/`)里的旧路径不改写,对照如下。例外:`research/non_pv_factor_card.md` 是现行说明书,账本路径已改为 `paper/v03/` 并注明旧名,脚本路径已改为 `research/scripts/`,因子代码路径已改为 `src/cta/factor_library/warehouse_receipts.py`;`msf_demo.py` 对 `msf_prereg.md` 的引用在 10-06 改成了当时的新路径;`msf_prereg.md` 正文里的旧路径没有改。
 
 | 旧路径 | 现在 |
 |---|---|

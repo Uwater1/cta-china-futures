@@ -41,6 +41,12 @@
 `CdpSession` 封装了开/关 tab、`/eval`、JSON 与二进制(base64 分片,一次 eval 返回 >2MB 会超时)取回,站点请求间隔 ≥1 秒(`MIN_INTERVAL`)。
 请求失败按 2^n 秒退避重试 4 次,连续失败重开 tab;仍失败写 `error:` 到 missing.log,下次 backfill 自动重试。
 
+代理不在本仓库里。它是开源项目 [eze-is/web-access](https://github.com/eze-is/web-access)(MIT)的 `scripts/cdp-proxy.mjs`,一个把 Chrome 远程调试协议包成 HTTP 接口的 Node 脚本(需要 Node 22+)。启动步骤:
+1. Chrome 地址栏打开 `chrome://inspect/#remote-debugging`,勾选 "Allow remote debugging for this browser instance",必要时重启 Chrome;
+2. `node <web-access>/scripts/cdp-proxy.mjs`(或运行该项目的 `scripts/check-deps.mjs`,它会检查依赖并把代理拉起来);
+3. `curl -s localhost:3456/health` 有返回即可。空闲时 `connected: null` 是正常的,第一个请求进来才连 Chrome;只有请求超时才说明没连上(2026-10-08 的失败就是这种情况,见 `docs/deployment.md`)。
+没有代理时 `scripts/fetch_exchange_data.sh` 只有大商所一步失败。注意 `cta.cli research` 不会报缺品种:`ExchangeSource.symbols()` 只列有行情的品种,面板构建时静默跳过其余;大商所 8 个品种(C、I、J、JD、M、P、V、Y)缺失时,输出的 `n_symbols` 是 14 而不是 22。
+
 ## 3. 字段映射
 
 原始文件 gzip 原样落 `raw/`(quotes/receipts 为 JSON,positions 为 zip)。规范化列见 `base.py`。

@@ -52,7 +52,7 @@
   2. 在 launchd 用的那个检出(`deploy/com.cta.paper.plist` 里的路径,`main`、暂存区为空)的仓库根目录运行 `.venv/bin/python -m cta.data.exchanges.dce ingest --date <失败日>`,确认 `data/exchanges/DCE/{quotes,receipts}/<年>/<YYYYMMDD>.parquet`(如 `2026/20261008.parquet`)已落盘、health 变成 `connected: true`;
   3. 在同一检出运行 `scripts/paper_daily.sh >> paper/log/cron.log 2>&1`(重放失败日、提交并推送;已结算的日子跳过),之前先在 cron.log 写一行说明这是手动补跑。不要在 worktree 里跑:脚本会推进 worktree 里那份账本副本并推送分支,真正的账本仍是失败状态。
 - `scripts/paper_daily.sh`:五本账各自运行,一本失败不影响其余;结束时把结果(含 FAILED.json)提交 git,任一失败则 macOS 通知 + 退出码 1(见 `paper/log/cron.log`)。
-- 日历:`configs/holidays.csv` 只登记到 2026-10-07,**2027 年休市安排公告后必须补**,否则元旦当天会失败报警(这是设计:宁可报警也不静默跳日)。
+- 日历:`configs/holidays.csv` 只登记到 2026-10-07。**2027 年休市日在 2026-12-16 至 12-31 之间追加**,公告早于 12-16 也先不加(设计日志 30.3:日历默认读这份文件,追加后未来合约的交易所到期日立即变化,进而改 `days_to_next` 与展期信号;这份文件不在 `paper_protocol.yaml` 的钉值里,验收报告看不出来)。晚于 12-31 不加,元旦当天会失败报警(这是设计:宁可报警也不静默跳日)。以后各年公告后即补。
 
 ## 三个月验收与配对差(2026-09-22 预注册,design_log 十八)
 - 验收指标(2026-09-23 起算,2026-12-16 出报告):数据完整率 100%、成交率 ≥95%(按腿)、滑点校准只报告、每周对账差异为 0、至少一次故障恢复演练。

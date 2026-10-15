@@ -1,7 +1,7 @@
-"""纸面交易验收(只读):完整率、成交率、权益对账、失败与漂移、共同日期、演练证据、champion/challenger 配对差。
+"""纸面交易验收(只读):完整率、成交率、权益对账、持仓对账、滑点校准、失败(含 git 历史)与漂移、共同日期、演练证据、champion/challenger 配对差。
 
 用法:python scripts/paper_acceptance.py --start 2026-09-23 --end 2026-12-15 [--strict] [--asof YYYY-MM-DD]
-验收期未结束 → 生成标有 PRELIMINARY 的阶段报告。--strict 时任一账本权益对账不一致 → 退出码 1。
+验收期未结束 → 生成标有 PRELIMINARY 的阶段报告。--strict 时任一账本权益或持仓对账不一致 → 退出码 1。
 只写 results/paper_acceptance/ 与 report/paper_acceptance_<end>.md;不修改任何 paper*/ 文件。
 """
 
@@ -52,12 +52,12 @@ def main() -> int:
         drills_dir=Path(args.drills),
     )
     print(
-        f"[{r.status}] 截至 {r.asof.date()}  对账 {'一致' if r.reconciliation_ok else '不一致'}  完整率 {'全满' if r.completeness_ok else '有缺失'}  未声明漂移 {r.undeclared_drift}  演练 {r.drills_status}"
+        f"[{r.status}] 截至 {r.asof.date()}  权益对账 {'一致' if r.reconciliation_ok else '不一致'}  持仓对账 {'一致' if r.positions_ok else '不一致'}  完整率 {'全满' if r.completeness_ok else '有缺失'}  未声明漂移 {r.undeclared_drift}  演练 {r.drills_status}"
     )
     print(r.summary.to_string(index=False))
     print(f"-> {r.report_path}")
-    if args.strict and not r.reconciliation_ok:
-        print("STRICT: 权益对账不一致", file=sys.stderr)
+    if args.strict and not (r.reconciliation_ok and r.positions_ok):
+        print("STRICT: 权益或持仓对账不一致", file=sys.stderr)
         return 1
     return 0
 

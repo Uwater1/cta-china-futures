@@ -5,7 +5,7 @@
   ① 手数 = round(目标暴露 × 权益 / (参考价 × 乘数));无有效参考价的品种保持当前持仓;
   ② 预计保证金 = Σ|手数| × 参考价 × 乘数 × 保证金率 > 上限 × 权益 时,全体等比缩减并向零取整;
   ③ 手数带:目标 ≠ 0 且 |目标 − 持仓| < band × max(1, |持仓|) 时保持持仓(清仓不受限)。
-暴露层的交易缓冲(signals.core.trade_buffer,配置 exposure_buffer)在信号层另算,量纲不同,两者不是重复。
+暴露层的交易缓冲(cta.factor_combination.portfolio.trade_buffer,配置 exposure_buffer)在信号层另算,量纲不同,两者不是重复。
 """
 
 from __future__ import annotations

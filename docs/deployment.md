@@ -31,7 +31,7 @@
 - 状态与留痕(每本账一个目录 `paper/<账本>/`,2026-10-06 起;之前五本账分别在仓库根目录 `paper/`、`paper_v03/` 等):`state.json`(权益、持仓)、`orders/<日期>/`(订单 + 输入快照与指纹)、`fills/<日期>.csv`、`equity.csv`、`log/<日期>.json`;launchd 日志在 `paper/log/cron.log`;每日 git 提交一次,提交时间即时间戳。
 - 调度:`deploy/com.cta.paper.plist`(launchd,工作日 05:10 多伦多);漏跑由 `cta paper catchup` 按账本最后盯市日补齐。
 - 运行环境:`scripts/paper_daily.sh` 用仓库内的 `.venv/bin/python`(Python 3.12,版本固定在 `requirements.txt`);新机器或新检出先运行一次 `scripts/setup_env.sh`。`.venv` 不存在时脚本报警(`no-venv`)且不运行任何账本,不会退回系统 Python(2026-10-07 起;此前用系统 Python 3.9,切换前已验证五本账目标暴露逐位相同,见设计日志二十七)。
-- 通过/中止标准:纸面 3 个月只做**工程验收**——数据完整率(无 FAILED 日)、成交率 ≥95%、实现滑点、盯市对账无差异、故障恢复演练;**不据此比较或选择版本**(3 个月夏普差的标准误 ±1.3,design_log 17.5)。净夏普与回测同期差在 ±0.5 内仅作"系统没坏"的粗检;盯市口径已统一(纸面与回测都用官方结算价,design_log 18.4)。
+- 通过/中止标准:纸面 3 个月只做**工程验收**——数据完整率(FAILED 日经重放修复算完整)、成交率 ≥95%、实现滑点(只报告)、权益与持仓对账无差异、故障恢复演练;**不据此比较或选择版本**(3 个月夏普差的标准误 ±1.3,design_log 17.5)。净夏普与回测同期差在 ±0.5 内仅作"系统没坏"的粗检;盯市口径已统一(纸面与回测都用官方结算价,design_log 18.4)。
 
 ### 运行中发现并修复的坑(2026-09-17)
 - **交易所网站白天就有"当日"行情文件,是盘中快照(结算价为空)。** 首次试跑在北京 11:21 抓到快照、按空结算价盯市并出单,全部作废(已回滚,留痕见 git 历史 c9c4a10 / 32ed30b)。现在两道闸门:`runner.settlement_published` 北京 16:30 前不抓当天;`shfe.parse_quotes` 若 >5% 成交合约无结算价抛 `NotFinalError`,`shfe.ingest_day`(上期所与能源中心共用)随即删除已缓存的 raw,下次运行重抓。
@@ -61,5 +61,5 @@
 - 语义断点:2026-09-22(含)之前的订单为旧口径,09-23 起为统一口径(手数带、T 收盘定手数、保证金真缩减、目标合约 = T+1 排程)。
 
 ## 验收与诊断命令(只读)
-- 纸面验收(设计日志十八):`.venv/bin/python scripts/paper_acceptance.py --start 2026-09-23 --end 2026-12-15 [--strict]` → `results/paper_acceptance/*.csv`、`report/paper_acceptance_2026-12-15.md`(期末前为 PRELIMINARY)。故障演练证据放 `docs/drills/*.json`(格式见 `docs/drills/README.md`),否则报告显示 PENDING。协议清单 `configs/paper_protocol.yaml` 记录 champion/challenger、预期摘要与已声明的切换。
+- 纸面验收(设计日志十八):`.venv/bin/python scripts/paper_acceptance.py --start 2026-09-23 --end 2026-12-15 [--strict]` → `results/paper_acceptance/*.csv`、`report/paper_acceptance_2026-12-15.md`(期末前为 PRELIMINARY)。故障演练证据放 `docs/drills/*.json`(格式见 `docs/drills/README.md`),否则报告显示 PENDING。协议清单 `configs/paper_protocol.yaml` 记录 champion/challenger、预期摘要与已声明的切换(git_sha 的切换可写 from → to)。`--strict` 时权益或持仓对账不一致退出码 1;失败记录另从 git 历史读已被重放清除的 FAILED.json;滑点校准读 `data/exchanges/<所>/quotes/` 当日文件(设计日志三十一)。
 - 组合诊断:`.venv/bin/python scripts/portfolio_diagnostics.py [--skip-loo]` → `results/portfolio_diagnostics/*.csv`、`docs/research/portfolio_diagnostics.md`(逐品种净归因对账不过即失败)。

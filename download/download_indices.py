@@ -15,7 +15,9 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from functools import partial
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -25,8 +27,8 @@ import rq_common as rc  # noqa: E402
 PATTERN = "商品期货|CFCI|原油期货|期货成份|期货综合"
 
 
-def select_indices(rq, guard) -> pd.DataFrame:
-    inst = rc.retry(lambda: rq.all_instruments(type="Index"))
+def select_indices(rq: Any, guard: rc.QuotaGuard) -> pd.DataFrame:
+    inst: pd.DataFrame = rc.retry(lambda: rq.all_instruments(type="Index"))
     hit = inst[inst["symbol"].astype(str).str.contains(PATTERN, regex=True, na=False)].copy()
     cols = [
         c
@@ -44,11 +46,11 @@ def select_indices(rq, guard) -> pd.DataFrame:
     return hit[cols].drop_duplicates("order_book_id").sort_values("order_book_id").reset_index(drop=True)
 
 
-def fetch_prices(rq, guard, ids: list[str], start: str, end: str) -> pd.DataFrame:
-    frames = []
+def fetch_prices(rq: Any, guard: rc.QuotaGuard, ids: list[str], start: str, end: str) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
     for batch in rc.chunked(ids, 20):
         guard.tick()
-        df = rc.retry(lambda b=batch: rq.get_price(b, start_date=start, end_date=end, frequency="1d"))
+        df = rc.retry(partial(rq.get_price, batch, start_date=start, end_date=end, frequency="1d"))
         if df is not None and len(df):
             frames.append(df.reset_index())
     if not frames:

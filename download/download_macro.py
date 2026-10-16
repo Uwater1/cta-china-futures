@@ -9,7 +9,7 @@
   spot/sge_daily/<INST>.parquet    上金所现货日线(黄金/白银/铂金等 19 个合约)
   spot/sge_benchmark.parquet       AU9999/AG9999/PT9995 的早盘价/午盘价
 
-宏观因子名单来自米筐公开的 econ_get_factors.xlsx(脚本内缓存到 /tmp/opencode)。
+宏观因子名单来自米筐公开的 econ_get_factors.xlsx(缓存到 data/ricecta/econ_get_factors.xlsx,不进 git)。
 
 用法:
   .venv/bin/python download/download_macro.py [--skip shibor,econ,spot] [--force]
@@ -21,7 +21,9 @@ import argparse
 import sys
 import time
 import urllib.request
+from functools import partial
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -29,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import rq_common as rc  # noqa: E402
 
 FACTORS_XLSX = "https://assets.ricequant.com/vendor/rqdata/econ_get_factors.xlsx"
-FACTORS_CACHE = Path("/tmp/opencode/econ_get_factors.xlsx")
+FACTORS_CACHE = rc.DATA_ROOT.parent / "econ_get_factors.xlsx"
 BENCHMARK_SPOTS = ["AU9999.SGEX", "AG9999.SGEX", "PT9995.SGEX"]
 
 
@@ -41,13 +43,13 @@ def factor_names() -> list[str]:
     return [str(n) for n in names[1:] if str(n).strip()]  # 第一行是表头
 
 
-def fetch_macro(rq, guard, start: str, end: str) -> pd.DataFrame:
+def fetch_macro(rq: Any, guard: rc.QuotaGuard, start: str, end: str) -> pd.DataFrame:
     names = factor_names()
     print(f"宏观因子 {len(names)} 个")
-    frames = []
+    frames: list[pd.DataFrame] = []
     for i, batch in enumerate(rc.chunked(names, 40)):
         guard.tick()
-        df = rc.retry(lambda b=batch: rq.econ.get_factors(b, start_date=start, end_date=end))
+        df = rc.retry(partial(rq.econ.get_factors, batch, start_date=start, end_date=end))
         if df is not None and len(df):
             frames.append(df.reset_index())
         if (i + 1) % 10 == 0:
@@ -93,7 +95,7 @@ def main() -> int:
                 out = rc.DATA_ROOT / "econ" / f"{name}.parquet"
                 if out.exists() and not args.force:
                     continue
-                df = rc.retry(lambda f=fn: getattr(rq.econ, f)(start_date=args.start, end_date=args.end))
+                df = rc.retry(partial(getattr(rq.econ, fn), start_date=args.start, end_date=args.end))
                 if df is not None and len(df):
                     df = df.reset_index()
                     for c in ("info_date", "effective_date"):
@@ -111,9 +113,7 @@ def main() -> int:
                 if not out.exists() or args.force:
                     guard.tick()
                     df = rc.retry(
-                        lambda i=inst: rq.get_price(
-                            i, start_date=args.start, end_date=args.end, frequency="1d"
-                        )
+                        partial(rq.get_price, inst, start_date=args.start, end_date=args.end, frequency="1d")
                     )
                     if df is not None and len(df):
                         df = df.reset_index()
@@ -121,7 +121,7 @@ def main() -> int:
                         rc.write_parquet(df, out, index=False)
                 if inst in BENCHMARK_SPOTS:
                     guard.tick()
-                    bp = rc.retry(lambda i=inst: rq.get_spot_benchmark_price(i, args.start, args.end))
+                    bp = rc.retry(partial(rq.get_spot_benchmark_price, inst, args.start, args.end))
                     if bp is not None and len(bp):
                         b = bp.reset_index()
                         b["date"] = pd.to_datetime(b["date"])

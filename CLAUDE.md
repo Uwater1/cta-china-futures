@@ -12,7 +12,7 @@ scripts/setup_env.sh                                   # once per checkout: .ven
 .venv/bin/python -m cta.cli research --config configs/strategy_v03.yaml
 .venv/bin/python -m pytest                             # ~12 min with local data
 .venv/bin/python -m pytest --ignore tests/test_paths_agree.py   # skip the ~9-min replay
-.venv/bin/ruff format --check src research tests scripts && .venv/bin/ruff check src research tests scripts && .venv/bin/mypy src research/cta_research
+.venv/bin/ruff format --check src research tests scripts download && .venv/bin/ruff check src research tests scripts download && .venv/bin/mypy src research/cta_research download
 ```
 
 - No `pyproject.toml`; the project is not pip-installed (settings in `ruff.toml`, `mypy.ini`, `pytest.ini`). mypy is strict with `warn_unused_ignores`, so a stale `# type: ignore` fails CI.
@@ -37,7 +37,7 @@ scripts/setup_env.sh                                   # once per checkout: .ven
 - Production = `src/cta/` plus `scripts/*.py`. It never imports or names the research package, except `pipeline._extra_factors_of`, which lazily loads the MSF composite when a config weights `msf` (only the demo `configs/strategy_v06_msf.yaml`). `tests/test_boundaries.py` and `tests/test_stage_layout.py` enforce the boundary, the stage direction, every import path and the file-relative default paths.
 - `research/cta_research/altdata/` holds the alternative-data pipelines; `research/cta_research/legacy/` the pre-2026-09-22 engine.
 - Top-level `data/` is the gitignored data store (code is in `src/cta/data/`); top-level `paper/` holds the five books (code is in `src/cta/execution/paper/`).
-- `download/` holds the rqdatac fetch scripts for the vendor export (idempotent, quota-guarded, resume by re-running; data lands in top-level `data/ricecta/data/`). Full table list and usage: `download/README.md`; source caveats: `docs/data/data_notes.md`.
+- `download/` holds the rqdatac fetch scripts for the vendor export (idempotent, quota-guarded, resume by re-running; data lands in top-level `data/ricecta/data/`). Full table list and usage: `download/README.md`; source caveats: `docs/data/data_notes.md`. Running them needs a RiceQuant account in the runner's environment; nothing in the repo holds credentials, and the vendor data is never committed. The scripts are under the same ruff/mypy gates as `src`; `tests/test_download_scripts.py` covers the pure helpers.
 - Paths before 2026-10-12 (e.g. `cta.signals.core`, `cta.backtest`, `cta_research.factors`) are mapped in `docs/README.md`.
 
 ## Rules that must not be broken

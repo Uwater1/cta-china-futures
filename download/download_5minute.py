@@ -22,6 +22,7 @@ import argparse
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -36,7 +37,7 @@ def contract_path(symbol: str, contract: str) -> Path:
     return rc.DATA_ROOT / OUT_DIR / symbol / f"{contract.upper()}.parquet"
 
 
-def fetch_batch(rq, contracts: list[str], start: str, end: str) -> dict[str, pd.DataFrame]:
+def fetch_batch(rq: Any, contracts: list[str], start: str, end: str) -> dict[str, pd.DataFrame]:
     """一次请求多个合约(降低往返;逐合约返回)。返回 {contract: DataFrame}。"""
     df = rc.retry(
         lambda: rq.get_price(list(contracts), start_date=start, end_date=end, frequency="5m", fields=FIELDS)
@@ -46,8 +47,8 @@ def fetch_batch(rq, contracts: list[str], start: str, end: str) -> dict[str, pd.
     if not isinstance(df.index, pd.MultiIndex):  # 单合约返回普通索引
         df = df.rename_axis("datetime")
         return {contracts[0].upper(): _prepare(df)}
-    x = df.reset_index()
-    out = {}
+    x: pd.DataFrame = df.reset_index()
+    out: dict[str, pd.DataFrame] = {}
     for contract, sub in x.groupby("order_book_id", sort=False):
         out[str(contract).upper()] = _prepare(sub.set_index("datetime").drop(columns="order_book_id"))
     return out

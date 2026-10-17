@@ -29,7 +29,7 @@
 - 覆盖 2016-01 起全部商品品种的真实合约,读法 `pd.read_parquet('data/ricecta/data/futures_5minute/CU/CU2610.parquet')`;文件为 zstd-18 + `BYTE_STREAM_SPLIT` + 时间列 delta 编码(见 `download/README.md`「压缩格式」),标准 pandas/pyarrow 直接可读。
 - 数据质量(交付前已全量检查;工具 `download/check_5m.py --fix`,可随时复跑):
   - 命名/schema/索引单调唯一/5 分钟整点网格/无 NaN/无负值/OHLC 包含关系:全量通过。
-  - **约一半 bar 零成交**(`volume=0`,OHLC 为上一成交价填充;冷门与交割月合约尤其多)——任何执行价、滑点、VWAP 计算必须先按 `volume>0` 过滤(设计日志 16.x 的"交割月假价差"即此类陷阱)。
+  - **约一半 bar 零成交**(`volume=0`,OHLC 为上一成交价填充;冷门与交割月合约尤其多)——任何执行价、滑点、VWAP 计算必须先按 `volume>0` 过滤(设计日志 23.2 的"交割月假价差"即此类陷阱)。
   - **郑商所(CZCE)的 `total_turnover` 不能反推价格**:约 67% 的 bar 反推均价 `total_turnover/(volume×乘数)` 落在 [low, high] 之外(上期所/大商所/能源 ≤0.7%),并有跨 bar 同值重复;与现拉米筐数据逐值一致,属供应商口径问题,不是本仓库处理引入。要么不用该字段,要么均价直接用 OHLC 构造。
   - 极少数 bar `volume>0` 而 `total_turnover=0`(或反之):全库约 880 行 / 5300 万行,供应商边界情况,原样保留。
   - 两处交割月单笔成交 bar 的供应商 OHLC 越界已做最小修复(仅把 high/low 放宽到包含 open/close,未改动任何价格字段本身):`C/C2209` 2022-09-05 09:20 high 2717→2725;`JM/JM2307` 2023-06-09 22:05 high 1320→1341.5。除此之外与米筐原始数据逐值一致(已抽查比对)。

@@ -69,7 +69,8 @@ nohup download/continue_daily.sh >> download/run.log 2>&1 &   # 配额自动续�
 - AB 测试(23 文件 / 39.8 万行):9.0 MiB → 3.1 MiB(2.9x),读取耗时与 snappy 持平。
   收益大头是时间列:snappy 下 datetime 索引约 7.6 B/行(全表 23.8 B/行),delta 后约 0.3 B/行;
   其次是把浮点字典编码让位给 BYTE_STREAM_SPLIT。
-- 全量 5 分钟线重写实测:570 → 179 MiB(**3.19x**,1714 文件,0 失败,193s)。
+- 存量重写实测:1,714 个文件 570 → 179 MiB(**3.19x**,0 失败,193s);其余文件下载时即按新编码写盘,
+  5 分钟线全量(7,430 文件)约 557 MiB。
 - 存量文件重写:`download/recompress.py --table futures_5minute`(幂等:已优化的跳过、
   不可优化的表跳过;逐文件 `DataFrame.equals` 校验无损)。
 

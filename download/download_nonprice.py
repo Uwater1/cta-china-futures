@@ -18,7 +18,10 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -28,21 +31,21 @@ import rq_common as rc  # noqa: E402
 RANK_BY = ("volume", "long", "short")
 
 
-def fetch_warehouse(rq, guard, symbol: str, start: str, end: str) -> pd.DataFrame:
+def fetch_warehouse(rq: Any, guard: rc.QuotaGuard, symbol: str, start: str, end: str) -> pd.DataFrame:
     df = rc.retry(lambda: rq.futures.get_warehouse_stocks(symbol, start_date=start, end_date=end))
     if df is None or len(df) == 0:
         return pd.DataFrame()
-    x = df.reset_index()
+    x: pd.DataFrame = df.reset_index()
     x["date"] = pd.to_datetime(x["date"])
     return x.sort_values("date").reset_index(drop=True)
 
 
-def fetch_rank(rq, guard, symbol: str, start: str, end: str) -> pd.DataFrame:
-    frames = []
+def fetch_rank(rq: Any, guard: rc.QuotaGuard, symbol: str, start: str, end: str) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
     for rank_by in RANK_BY:
         guard.tick()
         df = rc.retry(
-            lambda rb=rank_by: rq.futures.get_member_rank(symbol, start_date=start, end_date=end, rank_by=rb)
+            partial(rq.futures.get_member_rank, symbol, start_date=start, end_date=end, rank_by=rank_by)
         )
         if df is not None and len(df):
             x = df.reset_index()
@@ -55,12 +58,14 @@ def fetch_rank(rq, guard, symbol: str, start: str, end: str) -> pd.DataFrame:
     return x.sort_values(["trading_date", "rank_by", "rank"]).reset_index(drop=True)
 
 
-def fetch_params(rq, guard, uni, symbol: str, start: str, end: str) -> pd.DataFrame:
+def fetch_params(
+    rq: Any, guard: rc.QuotaGuard, uni: pd.DataFrame, symbol: str, start: str, end: str
+) -> pd.DataFrame:
     ids = rc.contracts_since(uni, symbol, start)
-    frames = []
+    frames: list[pd.DataFrame] = []
     for batch in rc.chunked(ids, 20):
         guard.tick()
-        df = rc.retry(lambda b=batch: rq.futures.get_trading_parameters(b, start_date=start, end_date=end))
+        df = rc.retry(partial(rq.futures.get_trading_parameters, batch, start_date=start, end_date=end))
         if df is not None and len(df):
             frames.append(df.reset_index())
     if not frames:
@@ -84,7 +89,7 @@ def main() -> int:
     uni = rc.load_universe()
     syms = [s.strip().upper() for s in args.symbols.split(",") if s.strip()] or rc.commodity_symbols(uni)
     skip = {s.strip() for s in args.skip.split(",") if s.strip()}
-    jobs = {
+    jobs: dict[str, tuple[str, Callable[[str], pd.DataFrame]]] = {
         "warehouse": ("warehouse_stocks", lambda sym: fetch_warehouse(rq, guard, sym, args.start, args.end)),
         "rank": ("member_rank", lambda sym: fetch_rank(rq, guard, sym, args.start, args.end)),
         "params": ("trading_parameters", lambda sym: fetch_params(rq, guard, uni, sym, args.start, args.end)),

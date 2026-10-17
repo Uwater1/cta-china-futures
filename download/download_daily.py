@@ -22,7 +22,9 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from functools import partial
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -55,15 +57,15 @@ EXCH_FIELDS = [
 ]
 
 
-def contracts_daily(rq, guard, uni, symbol: str, start: str, end: str) -> pd.DataFrame:
+def contracts_daily(
+    rq: Any, guard: rc.QuotaGuard, uni: pd.DataFrame, symbol: str, start: str, end: str
+) -> pd.DataFrame:
     ids = rc.contracts_since(uni, symbol, start)
-    frames = []
+    frames: list[pd.DataFrame] = []
     for batch in rc.chunked(ids, 40):
         guard.tick()
         df = rc.retry(
-            lambda b=batch: rq.get_price(
-                b, start_date=start, end_date=end, frequency="1d", fields=DAILY_FIELDS
-            )
+            partial(rq.get_price, batch, start_date=start, end_date=end, frequency="1d", fields=DAILY_FIELDS)
         )
         if df is not None and len(df):
             frames.append(df.reset_index())
@@ -97,7 +99,9 @@ def metadata(uni: pd.DataFrame, symbols: list[str], start: str) -> pd.DataFrame:
     return sub.sort_values("order_book_id")
 
 
-def dominant_daily(rq, guard, symbol: str, start: str, end: str, dm: pd.DataFrame | None) -> pd.DataFrame:
+def dominant_daily(
+    rq: Any, guard: rc.QuotaGuard, symbol: str, start: str, end: str, dm: pd.DataFrame | None
+) -> pd.DataFrame:
     df = rc.retry(
         lambda: rq.futures.get_dominant_price(
             symbol, start_date=start, end_date=end, adjust_type="pre", fields=DOM_FIELDS
@@ -105,7 +109,7 @@ def dominant_daily(rq, guard, symbol: str, start: str, end: str, dm: pd.DataFram
     )
     if df is None or len(df) == 0:
         return pd.DataFrame()
-    x = df.reset_index()
+    x: pd.DataFrame = df.reset_index()
     x["date"] = pd.to_datetime(x["date"])
     if dm is not None and len(dm):
         pair = dm[dm["symbol"] == symbol][["date", "contract"]].drop_duplicates("date")
@@ -116,15 +120,15 @@ def dominant_daily(rq, guard, symbol: str, start: str, end: str, dm: pd.DataFram
     return x.set_index("date")[order].sort_index()
 
 
-def exchange_daily(rq, guard, uni, symbol: str, start: str, end: str) -> pd.DataFrame:
+def exchange_daily(
+    rq: Any, guard: rc.QuotaGuard, uni: pd.DataFrame, symbol: str, start: str, end: str
+) -> pd.DataFrame:
     ids = rc.contracts_since(uni, symbol, start)
-    frames = []
+    frames: list[pd.DataFrame] = []
     for batch in rc.chunked(ids, 40):
         guard.tick()
         df = rc.retry(
-            lambda b=batch: rq.futures.get_exchange_daily(
-                b, start_date=start, end_date=end, fields=EXCH_FIELDS
-            )
+            partial(rq.futures.get_exchange_daily, batch, start_date=start, end_date=end, fields=EXCH_FIELDS)
         )
         if df is not None and len(df):
             frames.append(df.reset_index())
@@ -135,25 +139,25 @@ def exchange_daily(rq, guard, uni, symbol: str, start: str, end: str) -> pd.Data
     return x.set_index(["contract", "date"]).sort_index()
 
 
-def continuous(rq, guard, symbol: str, start: str, end: str) -> pd.DataFrame:
-    out = {}
+def continuous(rq: Any, guard: rc.QuotaGuard, symbol: str, start: str, end: str) -> pd.DataFrame:
+    out: dict[str, pd.Series[Any]] = {}
     for t in ("front_month", "next_month"):
         guard.tick()
-        s = rc.retry(lambda tt=t: rq.futures.get_continuous_contracts(symbol, start, end, type=tt))
+        s = rc.retry(partial(rq.futures.get_continuous_contracts, symbol, start, end, type=t))
         if s is not None and len(s):
             s = s.copy()
             s.index = pd.to_datetime(s.index)
             out[t] = s.rename(t)
     if not out:
         return pd.DataFrame()
-    return pd.concat(out.values(), axis=1).sort_index()
+    return pd.concat(list(out.values()), axis=1).sort_index()
 
 
-def roll_yield(rq, guard, symbol: str, start: str, end: str) -> pd.DataFrame:
-    frames = []
+def roll_yield(rq: Any, guard: rc.QuotaGuard, symbol: str, start: str, end: str) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
     for t in ("main_sub", "near_main"):
         guard.tick()
-        df = rc.retry(lambda tt=t: rq.futures.get_roll_yield(symbol, start_date=start, end_date=end, type=tt))
+        df = rc.retry(partial(rq.futures.get_roll_yield, symbol, start_date=start, end_date=end, type=t))
         if df is not None and len(df):
             x = df.reset_index()
             x["type"] = t

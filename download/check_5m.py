@@ -44,7 +44,7 @@ TOL = 0.05  # float32 在 1e5 量级的 ulp ~0.008
 
 
 def check_file(p: Path, problems: list[str], fix: bool) -> list[str]:
-    fixes = []
+    fixes: list[str] = []
     sym, stem = p.parent.name, p.stem
 
     def bad(msg: str) -> None:

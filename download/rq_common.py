@@ -60,7 +60,7 @@ class QuotaExhausted(RuntimeError):  # noqa: N818 - 名字沿用各脚本的 exc
 def init() -> Any:
     """初始化 rqdatac(认证来自环境变量/RQDATAC_CONF),返回模块。"""
     try:
-        import rqdatac  # type: ignore[import-not-found]
+        import rqdatac
     except ImportError:
         raise SystemExit("需要先安装 rqdatac:uv pip install --python .venv/bin/python rqdatac") from None
     rqdatac.init()
@@ -157,8 +157,8 @@ def column_encodings(df: pd.DataFrame) -> dict[str, str] | None:
     return enc or None
 
 
-def retry(fn: Callable[[], Any], attempts: int = 3, wait: float = 5.0) -> Any:
-    """对网络类错误重试;配额错误不重试。"""
+def retry[T](fn: Callable[[], T], attempts: int = 3, wait: float = 5.0) -> T:
+    """对网络类错误重试;配额错误不重试。循环里按批调用时用 functools.partial 绑定当前批次,不要用带默认参数的 lambda。"""
     last: Exception | None = None
     for i in range(attempts):
         try:

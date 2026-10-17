@@ -18,6 +18,7 @@ import argparse
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -25,26 +26,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import rq_common as rc  # noqa: E402
 
 
-def fetch_instruments(rq, force: bool) -> pd.DataFrame:
+def fetch_instruments(rq: Any, force: bool) -> pd.DataFrame:
     path = rc.DATA_ROOT / "universe" / "futures_instruments.parquet"
     if path.exists() and not force:
         print("universe 已存在,跳过(用 --force 重下)")
         return pd.read_parquet(path)
     t0 = time.time()
-    df = rc.retry(lambda: rq.all_instruments(type="Future"))
+    df: pd.DataFrame = rc.retry(lambda: rq.all_instruments(type="Future"))
     rc.write_parquet(df, path, index=False)
     rc.record(item="universe/futures_instruments", rows=len(df), seconds=round(time.time() - t0, 1))
     print(f"universe {df.shape} -> {path}")
     return df
 
 
-def fetch_dominant(rq, symbol: str, rank: int, rule: int, start: str, end: str) -> pd.DataFrame | None:
+def fetch_dominant(rq: Any, symbol: str, rank: int, rule: int, start: str, end: str) -> pd.DataFrame | None:
     s = rc.retry(
         lambda: rq.futures.get_dominant(symbol, start_date=start, end_date=end, rule=rule, rank=rank)
     )
     if s is None or len(s) == 0:
         return None
-    df = s.rename("contract").to_frame()
+    df: pd.DataFrame = s.rename("contract").to_frame()
     df.index.name = "date"
     df = df.reset_index()
     df = df[df["contract"].notna()]

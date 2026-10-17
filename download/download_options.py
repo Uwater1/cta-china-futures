@@ -20,7 +20,9 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from functools import partial
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -94,14 +96,14 @@ def maturities_of(contracts: pd.DataFrame) -> list[str]:
     return sorted(out)
 
 
-def fetch_contracts(rq, guard, underlying: str) -> pd.DataFrame:
+def fetch_contracts(rq: Any, guard: rc.QuotaGuard, underlying: str) -> pd.DataFrame:
     ids = rc.retry(lambda: rq.options.get_contracts(underlying=underlying))
     if not ids:
         return pd.DataFrame()
-    rows = []
+    rows: list[dict[str, Any]] = []
     for batch in rc.chunked(list(ids), 200):
         guard.tick()
-        inst = rc.retry(lambda b=batch: rq.instruments(b))
+        inst = rc.retry(partial(rq.instruments, batch))
         for i in inst if isinstance(inst, list) else [inst]:
             rows.append(
                 {
@@ -121,15 +123,17 @@ def fetch_contracts(rq, guard, underlying: str) -> pd.DataFrame:
     return df
 
 
-def fetch_dominant_month(rq, guard, underlying: str, start: str, end: str) -> pd.DataFrame:
-    frames = []
+def fetch_dominant_month(
+    rq: Any, guard: rc.QuotaGuard, underlying: str, start: str, end: str
+) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
     for rank in (1, 2):
         guard.tick()
         s = rc.retry(
-            lambda r=rank: rq.options.get_dominant_month(underlying, start_date=start, end_date=end, rank=r)
+            partial(rq.options.get_dominant_month, underlying, start_date=start, end_date=end, rank=rank)
         )
         if s is not None and len(s):
-            x = s.rename("contract").to_frame()
+            x: pd.DataFrame = s.rename("contract").to_frame()
             x.index.name = "date"
             x = x.reset_index()
             x["date"] = pd.to_datetime(x["date"])
@@ -141,16 +145,14 @@ def fetch_dominant_month(rq, guard, underlying: str, start: str, end: str) -> pd
 
 
 def fetch_indicators(
-    rq, guard, underlying: str, contracts: pd.DataFrame, start: str, end: str
+    rq: Any, guard: rc.QuotaGuard, underlying: str, contracts: pd.DataFrame, start: str, end: str
 ) -> pd.DataFrame:
-    frames = []
+    frames: list[pd.DataFrame] = []
     mats = maturities_of(contracts)
     for mat in mats:
         guard.tick()
         try:
-            df = rc.retry(
-                lambda m=mat: rq.options.get_indicators(underlying, m, start_date=start, end_date=end)
-            )
+            df = rc.retry(partial(rq.options.get_indicators, underlying, mat, start_date=start, end_date=end))
         except RuntimeError as e:  # 个别到期月无数据/该品种无此月份
             print(f"  {underlying} {mat}: {e}")
             continue
@@ -166,14 +168,17 @@ def fetch_indicators(
     return x[cols].sort_values(["maturity", "date"]).reset_index(drop=True)
 
 
-def fetch_greeks(rq, guard, underlying: str, contracts: pd.DataFrame, start: str, end: str) -> pd.DataFrame:
+def fetch_greeks(
+    rq: Any, guard: rc.QuotaGuard, underlying: str, contracts: pd.DataFrame, start: str, end: str
+) -> pd.DataFrame:
     ids = contracts["contract"].tolist()
-    frames = []
+    frames: list[pd.DataFrame] = []
     for batch in rc.chunked(ids, 50):
         guard.tick()
         g = rc.retry(
-            lambda b=batch: rq.options.get_greeks(
-                b,
+            partial(
+                rq.options.get_greeks,
+                batch,
                 start_date=start,
                 end_date=end,
                 fields=["iv", "Delta"],

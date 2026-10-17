@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from functools import partial
 from pathlib import Path
 
 import pandas as pd
@@ -66,9 +67,7 @@ def main() -> int:
                 continue
             guard.tick()
             df = rc.retry(
-                lambda c=contract, d=day: rq.get_price(
-                    c, start_date=d, end_date=d, frequency="tick", fields=FIELDS
-                )
+                partial(rq.get_price, contract, start_date=day, end_date=day, frequency="tick", fields=FIELDS)
             )
             if df is None or len(df) == 0:
                 continue

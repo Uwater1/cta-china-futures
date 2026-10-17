@@ -1035,3 +1035,9 @@ M1(主):三个核心 sleeve(tsmom、carry、receipts_level 各自按波动率目
 - 报告 v0.6 的样本外重算范围扩大到 `docs/research/non_pv_factor_card.md`、`msf_demo.md`、`portfolio_diagnostics.md`;`candidate_eval` 的 OUT-OF-SAMPLE 汇总行默认从 2022-01-04 起、同样漏 1 月,默认值不改(旧试验要能复现),写进 factor_mining 的 CLAUDE.md。
 - 审计未采纳的两条:报告 v0.5 里的旧路径按 27.5 不改写;试验 61 的回放步骤已分散写在预注册 8.1、`research/cta_research/CLAUDE.md` 与根 CLAUDE.md,不另写。仓库是否加许可证文件由用户决定。
 - 试验计数不变,仍为 **61**。
+
+## 三十二、米筐下载脚本合入(PR #1,2026-10-16 北京;不计试验,不含数据,生产不变)
+- 朋友(Uwater1)的 PR 只有 `download/` 下 16 个 rqdatac 下载脚本(幂等、配额守卫、断点续跑)和两处说明,没有数据;本机与朋友的 ricecta 仓库都没有新表。5 分钟线不是新数据:2016 → 2026-06-03 的 23 个品种 9 月就在本机,十六已用于执行研究、不作因子。
+- 合入后修正:52 处 mypy strict 报错(`rq` 参数无类型、带默认参数的 lambda、返回 Any),改为显式类型、`functools.partial` 绑定批次、PEP 695 泛型 `retry`;宏观因子清单的缓存从 `/tmp/opencode` 改到 `data/ricecta/`;`download/` 纳入 CI 的 ruff/mypy 门禁;`tests/test_download_scripts.py` 5 项覆盖不需要账号的纯函数。认证只来自运行者环境变量,仓库不存账号;米筐数据仍不入库。
+- 数据要由有米筐账号的人运行脚本(试用 1 GiB/天;`--no-5m` 约 650 MB)。新表里对项目有用的:`trading_parameters`(v0.1r 覆盖层缺的大商所事件源)、`dominant_rule1`/`dominant2`(12-15 后换月规则决定的对照)、大商所期权指标(23.4 的缺口)、`exchange_daily`/`continuous`/指数(核对与基准)。4006 个宏观因子只能按 TODO 第 2 节的批量搜索协议使用。任何新因子仍须先预注册、计试验、只用注册之后的新数据判读;这批数据近期能带来的是补缺口和验收后的决策依据,不是回测数字。
+- 试验计数不变,仍为 **61**。

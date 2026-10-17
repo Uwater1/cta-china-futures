@@ -22,7 +22,7 @@
 
 ## 5 分钟线(`futures_5minute/`)
 
-全库约 0.8 GiB、7000+ 个合约文件,**随仓库分发**(克隆仓库前留意体积)。
+全库 7,430 个合约文件、约 560 MiB,**随仓库分发**(克隆仓库前留意体积)。
 
 - 布局:`futures_5minute/<品种>/<合约>.parquet`(目录=米筐 `underlying_symbol`,文件=`order_book_id`);含大商所 2025-10 起的月均价品种 `L_F`/`PP_F`/`V_F`(如 `L2602F.parquet`,以月均价交割);合成连续合约(88/888/889/99/88A2)不在库内。
 - 字段:8 列 `open/high/low/close/volume/total_turnover/open_interest/trading_date`,均为 float32;索引 `datetime` 是 **bar 结束时间**(夜盘 21:00–02:30 的 bar 归属下一交易日,`trading_date` 即该交易日)。合约乘数在 `contracts_daily/metadata.parquet`。

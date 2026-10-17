@@ -37,7 +37,7 @@ scripts/setup_env.sh                                   # once per checkout: .ven
 - Production = `src/cta/` plus `scripts/*.py`. It never imports or names the research package, except `pipeline._extra_factors_of`, which lazily loads the MSF composite when a config weights `msf` (only the demo `configs/strategy_v06_msf.yaml`). `tests/test_boundaries.py` and `tests/test_stage_layout.py` enforce the boundary, the stage direction, every import path and the file-relative default paths.
 - `research/cta_research/altdata/` holds the alternative-data pipelines; `research/cta_research/legacy/` the pre-2026-09-22 engine.
 - Top-level `data/` is the gitignored data store (code is in `src/cta/data/`); top-level `paper/` holds the five books (code is in `src/cta/execution/paper/`).
-- `download/` holds the rqdatac fetch scripts for the vendor export (idempotent, quota-guarded, resume by re-running; data lands in top-level `data/ricecta/data/`). Full table list and usage: `download/README.md`; source caveats: `docs/data/data_notes.md`.
+- `download/` holds the rqdatac fetch scripts for the vendor export (idempotent, quota-guarded, resume by re-running; data lands in top-level `data/ricecta/data/`). Full table list and usage: `download/README.md`; source caveats: `docs/data/data_notes.md`. The export **including the 5-minute bars** (7,430 contracts, ~560 MiB) is committed to the repo; the 5-minute caveats (zero-volume bars, CZCE `total_turnover`, repaired rows) and the cleanliness tool `download/check_5m.py` are documented in `docs/data/data_notes.md`「5 分钟线」.
 - Paths before 2026-10-12 (e.g. `cta.signals.core`, `cta.backtest`, `cta_research.factors`) are mapped in `docs/README.md`.
 
 ## Rules that must not be broken

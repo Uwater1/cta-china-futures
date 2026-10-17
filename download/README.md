@@ -37,7 +37,7 @@ nohup download/continue_daily.sh >> download/run.log 2>&1 &   # 配额自动续�
 | `exchange_daily/<SYM>.parquet` | 交易所日线(官方结算价/成交额) | download_daily.py | 结算价核对、官方口径 |
 | `continuous/<SYM>.parquet` | 近月/次月连续合约 | download_daily.py | 期限结构/日历价差 |
 | `roll_yield/<SYM>.parquet` | 米筐展期收益率(main_sub / near_main) | download_daily.py | carry 因子对照 |
-| `futures_5minute/<SYM>/<CONTRACT>.parquet` | 5 分钟线(全合约,2016 起;**入库**,约 0.8 GiB) | download_5minute.py | 执行研究、日内特征 |
+| `futures_5minute/<SYM>/<CONTRACT>.parquet` | 5 分钟线(全合约,2016 起;**入库**,7,430 个合约 / 约 560 MiB) | download_5minute.py | 执行研究、日内特征 |
 | `warehouse_stocks/<SYM>.parquet` | 注册仓单(含有效预报/可交割量) | download_nonprice.py | 仓单因子、补大商所 |
 | `member_rank/<SYM>.parquet` | 会员持仓排名(volume/long/short) | download_nonprice.py | 持仓因子、补历史缺口 |
 | `trading_parameters/<SYM>.parquet` | 逐合约逐日保证金/手续费/限仓 | download_nonprice.py | 成本模型、监管事件层(补 DCE/CZCE) |

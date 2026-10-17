@@ -1,6 +1,6 @@
 # download/: 米筐 RQData 批量下载
 
-把 alpha 研究所需要的米筐数据全部落到 `data/ricecta/data/`(gitignored),输出 parquet,
+把 alpha 研究所需要的米筐数据全部落到 `data/ricecta/data/`(除 5 分钟线/中间分片/日志外**随仓库分发**),输出 parquet,
 与既有米筐导出口径(`RicequantParquetSource`、`research/scripts/exec_fills.py`)兼容。
 脚本幂等、断点续跑;试用账号每天 1 GiB 流量,`run_all.sh` 被配额截断后**第二天原样重跑**即可续。
 
@@ -36,7 +36,7 @@ nohup download/continue_daily.sh >> download/run.log 2>&1 &   # 配额自动续�
 | `exchange_daily/<SYM>.parquet` | 交易所日线(官方结算价/成交额) | download_daily.py | 结算价核对、官方口径 |
 | `continuous/<SYM>.parquet` | 近月/次月连续合约 | download_daily.py | 期限结构/日历价差 |
 | `roll_yield/<SYM>.parquet` | 米筐展期收益率(main_sub / near_main) | download_daily.py | carry 因子对照 |
-| `futures_5minute/<SYM>/<CONTRACT>.parquet` | 5 分钟线(全合约,2016 起) | download_5minute.py | 执行研究、日内特征 |
+| `futures_5minute/<SYM>/<CONTRACT>.parquet` | 5 分钟线(全合约,2016 起;**不入库**) | download_5minute.py | 执行研究、日内特征 |
 | `warehouse_stocks/<SYM>.parquet` | 注册仓单(含有效预报/可交割量) | download_nonprice.py | 仓单因子、补大商所 |
 | `member_rank/<SYM>.parquet` | 会员持仓排名(volume/long/short) | download_nonprice.py | 持仓因子、补历史缺口 |
 | `trading_parameters/<SYM>.parquet` | 逐合约逐日保证金/手续费/限仓 | download_nonprice.py | 成本模型、监管事件层(补 DCE/CZCE) |
@@ -71,4 +71,4 @@ nohup download/continue_daily.sh >> download/run.log 2>&1 &   # 配额自动续�
 - `dominant_daily` 使用前复权(`adjust_type='pre'`, `prev_close_spread`),与既有导出口径一致;
   原始价请用 `contracts_daily` / `exchange_daily`。
 - `metadata.parquet` 的 `margin_rate` 是米筐的"临近交割抬高后"值,细节见 `docs/data/data_notes.md`。
-- 数据只在本机 `data/` 下,仓库不提交(`.gitignore` 已排除 `data/*`)。
+- 入库口径:`data/ricecta/data/` 随仓库分发,**除** `futures_5minute/`、`dominant_contracts/_pieces/` 与 `download_log.jsonl`(体积原因,脚本可重建);`.gitignore` 里 `*.tmp` 用于挡原子写的临时文件。
